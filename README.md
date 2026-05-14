@@ -5,6 +5,7 @@
 </p>
 
 <p align="center">
+  <a href="https://forcelens.vercel.app/"><img src="https://img.shields.io/badge/Website-forcelens.vercel.app-blue.svg?style=flat-square&logo=vercel" alt="Website"></a>
   <a href="https://chrome.google.com/webstore"><img src="https://img.shields.io/badge/Chrome_Extension-Free-indigo.svg?style=flat-square&logo=google-chrome&logoColor=white" alt="Chrome Web Store"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-All%20Rights%20Reserved-lightgrey.svg?style=flat-square" alt="All Rights Reserved License"></a>
   <img src="https://img.shields.io/badge/Security-Local--First-green.svg?style=flat-square" alt="Security: Local First">
