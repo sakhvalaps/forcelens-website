@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://chrome.google.com/webstore"><img src="https://img.shields.io/badge/Chrome_Extension-Free-indigo.svg?style=flat-square&logo=google-chrome&logoColor=white" alt="Chrome Web Store"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-All%20Rights%20Reserved-lightgrey.svg?style=flat-square" alt="All Rights Reserved License"></a>
   <img src="https://img.shields.io/badge/Security-Local--First-green.svg?style=flat-square" alt="Security: Local First">
   <img src="https://img.shields.io/badge/AI-BYOK-orange.svg?style=flat-square" alt="AI: BYOK ready">
 </p>
@@ -33,7 +33,7 @@ Salesforce Developer Console shows you raw logs. Every other tool makes you copy
 
 ---
 
-## ⚡ Core Features
+## ✦ Core Features
 
 ### 1. One-Click "Smart Capture"
 No more manually setting up trace flags or hunting for logs in Setup. Click **Smart Capture**, run your transaction, and ForceLens captures, groups, and displays the log automatically without you ever leaving the page.
@@ -53,11 +53,11 @@ Export complete reports directly as `.docx` files.
 Configure your own API keys for **Claude, GPT-4o, Groq, or OpenRouter**. All AI queries go directly from your browser to the provider — no middleman servers, no markup fees, and complete data isolation.
 
 ### 5. Local-First History
-Your last 200 analyzed sessions are saved in your browser's local storage. Filter by org, log ID, or date, and resume debugging instantly.
+Your last 200 analyzed sessions are saved in your browser's local storage. Filter by org, log ID, or date, and resume debugging custody instantly.
 
 ---
 
-## 🛡️ Security & Privacy First
+## ✦ Security & Privacy First
 
 We believe developer tools should never expose proprietary code or client logs. 
 * **Zero Telemetry Servers**: ForceLens has no backend server. Your logs are parsed inside your browser sandbox.
@@ -66,7 +66,7 @@ We believe developer tools should never expose proprietary code or client logs.
 
 ---
 
-## 🚀 How It Integrates
+## ✦ How It Integrates
 
 ForceLens adds a single, powerful **"Inspect Log"** button in the three places your eyes already live:
 
@@ -82,7 +82,7 @@ ForceLens adds a single, powerful **"Inspect Log"** button in the three places y
 
 ---
 
-## 🛠️ Getting Started
+## ✦ Getting Started
 
 ### Installation
 1. Search **ForceLens** in the [Chrome Web Store](https://chrome.google.com/webstore).
@@ -97,17 +97,17 @@ ForceLens adds a single, powerful **"Inspect Log"** button in the three places y
 
 ---
 
-## 🌐 Works Everywhere
+## ✦ Works Everywhere
 - Lightning Experience & Salesforce Classic
 - Developer Console & Flow Builder
 - Developer, Sandbox, Scratch, and Production Environments
 
 ---
 
-## 📄 License
-Distributed under the MIT License. See [LICENSE](file:///c:/Users/HP/Desktop/ForceLense%20Site/LICENSE) for more information.
+## ✦ License
+Distributed under proprietary terms. All rights reserved. See [LICENSE](file:///c:/Users/HP/Desktop/ForceLense%20Site/LICENSE) for more information.
 
 ---
 
-## 👥 Crafted By
-Designed and crafted with ❤️ by **[Prit Sakhvala](https://github.com/sakhvalaps)**, Salesforce Developer.
+## ✦ Crafted By
+Designed and crafted with care by **[Prit Sakhvala](https://github.com/sakhvalaps)**, Salesforce Developer.
