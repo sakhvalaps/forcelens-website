@@ -230,7 +230,7 @@
               <tr>
                 <td class="strong-col">Salesforce Session Tokens</td>
                 <td><span class="badge-never badge">In-Memory Only</span></td>
-                <td>Read temporarily from cookies to query Salesforce APIs. Discarded immediately after request completion.</td>
+                <td>Read temporarily from cookies to query Salesforce APIs. Held in memory only for the lifetime of the open tab, then discarded. Never written to disk.</td>
               </tr>
               <tr>
                 <td class="strong-col">AI Configurations &amp; Keys</td>
@@ -346,7 +346,7 @@
 
           <div class="perm-card">
             <div class="perm-card-header">
-              <span class="perm-card-title">activeTab</span>
+              <span class="perm-card-title">unlimitedStorage</span>
               <div class="perm-badge-group">
                 <span class="badge badge-never">Zero Risk</span>
                 <svg class="perm-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -358,14 +358,14 @@
               <div class="perm-card-grid">
                 <div class="perm-grid-col">
                   <span class="perm-col-label">Chrome Prompt Warning</span>
-                  <span class="perm-col-value">None (Active user click only)</span>
+                  <span class="perm-col-value">None (Silent Permission)</span>
                 </div>
                 <div class="perm-grid-col">
                   <span class="perm-col-label">Actual Usage</span>
-                  <span class="perm-col-value">Reads the active Salesforce URL structure to correctly identify instance domains.</span>
+                  <span class="perm-col-value">Lets large Apex debug logs (often several MB) be cached locally without hitting Chrome's default 10 MB storage cap.</span>
                 </div>
               </div>
-              <p>This allows temporary script injection access when you explicitly trigger the extension bar, preventing unnecessary persistent injection warnings. It enables ForceLens to operate only when and where you decide to activate it.</p>
+              <p>All data stays inside the extension's local sandbox — <code>unlimitedStorage</code> only raises the size limit; it grants no new access.</p>
             </div>
           </div>
 
@@ -391,6 +391,31 @@
                 </div>
               </div>
               <p>This host match rule lets the extension fetch the raw text content of logs and source code (such as triggers, classes, flows) from Salesforce Org domains. This communication occurs strictly between your browser tab and the Salesforce API endpoints directly. No data ever passes through or is rerouted to ForceLens servers.</p>
+            </div>
+          </div>
+
+          <div class="perm-card">
+            <div class="perm-card-header">
+              <span class="perm-card-title">Optional Hosts (Anthropic, OpenAI, Groq, OpenRouter, Supabase)</span>
+              <div class="perm-badge-group">
+                <span class="badge badge-never">Zero Risk</span>
+                <svg class="perm-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+            <div class="perm-card-body">
+              <div class="perm-card-grid">
+                <div class="perm-grid-col">
+                  <span class="perm-col-label">Chrome Prompt Warning</span>
+                  <span class="perm-col-value">None at install (Requested dynamically at runtime)</span>
+                </div>
+                <div class="perm-grid-col">
+                  <span class="perm-col-label">Actual Usage</span>
+                  <span class="perm-col-value">Allows direct client-to-API network requests for optional AI analysis and optional support community board.</span>
+                </div>
+              </div>
+              <p>These optional host permissions (e.g. <code>api.anthropic.com</code>, <code>api.openai.com</code>, <code>api.groq.com</code>, <code>openrouter.ai</code>, and <code>supabase.co</code>) are not requested at installation. They are requested dynamically only when you choose to configure an AI provider or click to open the feedback board. They connect your browser directly to the endpoint with zero intermediate gateway servers.</p>
             </div>
           </div>
 
