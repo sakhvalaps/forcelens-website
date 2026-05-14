@@ -56,6 +56,21 @@ Configure your own API keys for **Claude, GPT-4o, Groq, or OpenRouter**. All AI 
 ### 5. Local-First History
 Your last 200 analyzed sessions are saved in your browser's local storage. Filter by org, log ID, or date, and resume debugging custody instantly.
 
+### 6. The 12 Workspace Diagnostic Lenses
+ForceLens parses logs into 12 dedicated interactive views:
+- **Overview**: High-level execution metrics, speed indicators, and transaction health scoring.
+- **Log Explorer**: Color-coded log line grid with level filters and regex text search.
+- **Execution Tree**: Complete hierarchical call tree showing nested triggers, methods, and flows.
+- **Order of Execution**: Architectural layout displaying exact event firing order.
+- **Apex Debug**: Isolated console showing only `System.debug()` output lines.
+- **AI Pulse**: Explains limits warnings, complex loops, and execution code paths in natural language.
+- **Errors**: Dedicated warnings panel highlighting failed validations, query caps, and DML faults.
+- **Timeline**: Horizontal flame chart plotting block durations to identify latency hot spots.
+- **DML**: Direct grid tracking DML occurrences, rows mutated, and nested-loop DML warnings.
+- **SOQL**: Database log auditing query count, rows returned, and duplicate/non-selective queries.
+- **Performance**: Deep profiler highlighting execution hotspots.
+- **Limits**: Real-time counter detailing Governor Limit utilization per block.
+
 ---
 
 ## ✦ Security & Privacy First
@@ -102,6 +117,27 @@ ForceLens adds a single, powerful **"Inspect Log"** button in the three places y
 - Lightning Experience & Salesforce Classic
 - Developer Console & Flow Builder
 - Developer, Sandbox, Scratch, and Production Environments
+
+---
+
+## ✦ Technical Specifications
+- **Parser Engine**: Pure JavaScript client-side parser.
+- **Parsing Speed**: Handles 100k+ log lines in `< 100ms`.
+- **Sandbox Security**: Runs strictly within Chrome Extension sandbox isolation.
+- **Authentication**: Zero OAuth configurations required; leverages active cookies (browser session context) to authenticate requests.
+
+---
+
+## ✦ FAQ
+
+**Q: Is it really free?**  
+A: Yes! All log capturing, tree building, and flow analyzing modules are completely free and run locally. The only cost is the API usage fees charged directly by your chosen AI provider if you decide to configure your own key for the AI summaries.
+
+**Q: Is my code or data safe?**  
+A: Absolutely. ForceLens has no centralized backend server. Logs are parsed on your local machine and stored inside Chrome’s secure local extension storage. Outbound AI requests connect directly from your browser to the AI provider endpoint with zero middlemen.
+
+**Q: Which editions of Salesforce are supported?**  
+A: It works everywhere debug logs are generated: Developer Orgs, Scratch Orgs, Sandboxes, and Production Environments.
 
 ---
 
