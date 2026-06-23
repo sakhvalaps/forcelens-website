@@ -172,7 +172,7 @@ html {
 }
 
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
 }
 
@@ -2605,30 +2605,22 @@ footer.main-footer {
   }
 
   .trust-sidebar-menu {
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
     padding: 2px 0 8px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    -webkit-overflow-scrolling: touch;
-    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
-  }
-
-  .trust-sidebar-menu::-webkit-scrollbar {
-    display: none;
   }
 
   .trust-sidebar-link {
-    white-space: nowrap;
-    border-radius: var(--radius-full);
-    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     background: var(--bg-sunken);
     border: 1px solid var(--border-default);
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .trust-sidebar-link.active {
@@ -3194,8 +3186,69 @@ footer.main-footer {
 }
 
 @media (max-width: 640px) {
+  .table-container {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    overflow-x: visible;
+  }
+  
   .policy-table {
-    min-width: 580px;
+    display: block;
+    width: 100%;
+  }
+  
+  .policy-table thead {
+    display: none;
+  }
+  
+  .policy-table tbody {
+    display: block;
+    width: 100%;
+  }
+  
+  .policy-table tr {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .policy-table tr:hover {
+    background-color: var(--bg-surface);
+  }
+
+  .policy-table td {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border-bottom: none;
+    text-align: left;
+  }
+  
+  .policy-table td.strong-col {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  
+  .policy-table td:nth-child(2) {
+    display: flex;
+    align-items: center;
+  }
+  
+  .policy-table td:nth-child(3) {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    border-top: 1px dashed var(--border-default);
+    padding-top: 10px;
+    margin-top: 4px;
   }
 }
 
@@ -4805,7 +4858,23 @@ footer.main-footer {
   }
 
   .contact-body {
+    display: flex;
+    flex-direction: column;
     align-items: center;
+  }
+
+  .email-btn {
+    align-self: center;
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .trust-sidebar-link {
+    font-size: 11.5px;
+    padding: 6px 8px;
+    gap: 6px;
   }
 
   /* ForceLens mockup extension popup fixes for mobile */
