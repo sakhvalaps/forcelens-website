@@ -166,12 +166,13 @@ html {
 .sandbox-left, .sandbox-right,
 .tour-steps,
 .stepper-layout > *,
-.trust-sidebar, .trust-content {
+.trust-sidebar, .trust-content,
+.spotlight-copy, .spotlight-visual {
   min-width: 0;
 }
 
 html, body {
-  overflow-x: clip;
+  overflow-x: hidden;
   width: 100%;
 }
 
@@ -1047,7 +1048,7 @@ header.nav-header {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
-  overflow: hidden;
+  overflow: visible;
   height: 380px;
   display: flex;
   flex-direction: column;
@@ -1092,6 +1093,8 @@ header.nav-header {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
 /* Salesforce Setup mock (Smart Capture demo) */
@@ -1104,6 +1107,8 @@ header.nav-header {
   gap: 12px;
   padding: 0 14px;
   flex-shrink: 0;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
 }
 .sf-mock-cloud {
   display: inline-flex;
@@ -4709,5 +4714,103 @@ footer.main-footer {
   100% {
     transform: scale(1.5);
     opacity: 0;
+  }
+}
+
+/* Additional Mobile Responsiveness Improvements */
+@media (max-width: 768px) {
+  /* Scale glow backdrops so they don't cause horizontal layout stretching and cutoffs */
+  .premium-glow-backdrop,
+  .hero-glow {
+    width: 100%;
+    left: 0;
+    top: 0;
+    height: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Prevent horizontal layout stretching and allow sections to clip overflow if any */
+  .hero-section,
+  .stats-section,
+  .compat-band,
+  .killer-band,
+  .spotlight-band,
+  .tour-section,
+  .simulator-section,
+  .flow-section,
+  .free-band,
+  .faq-section,
+  .cta-section {
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Wrap provider strip logos on mobile */
+  .provider-strip-logos {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 18px;
+  }
+
+  /* Fix CTA button stretching bug */
+  .cta-buttons a,
+  .cta-buttons button {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Fix CTA title size on mobile */
+  .cta-container h2 {
+    font-size: 26px;
+  }
+
+  /* Stack footer right-side links vertically */
+  .footer-right {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Make simulator tabs slightly smaller on mobile */
+  .sim-tab {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+
+  .sim-tabs-group-label {
+    font-size: 9.5px;
+  }
+
+  /* Scale section titles on mobile */
+  .section-header h2,
+  .sandbox-left h2 {
+    font-size: 24px;
+  }
+
+  /* Stack permission grid columns and contact cards in privacy.html */
+  .perm-card-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .contact-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .contact-body {
+    align-items: center;
+  }
+
+  /* ForceLens mockup extension popup fixes for mobile */
+  .fl-extension-popup {
+    width: 270px;
+    right: -20px;
   }
 }
