@@ -179,10 +179,7 @@
     position: static;
     top: auto;
   }
-  .support-feed {
-    max-height: none;
-    overflow-y: visible;
-  }
+
 }
 
 .support-aside {
@@ -602,43 +599,11 @@ a.contact-link:hover {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  /* Fill the stretched column so the board bottom aligns with the sidebar, and
-     never exceed the viewport so long lists scroll internally instead of
-     growing the page. */
+
   flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100vh - 140px);
-  overflow-y: auto;
-  /* Right padding keeps cards clear of the scrollbar; small vertical padding so
-     card shadows aren't clipped at the scroll edges. */
   padding: 4px 14px 4px 4px;
   margin: -4px -6px -4px -4px;
-  scrollbar-gutter: stable;
-  /* Firefox */
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong, #cbd5e1) transparent;
-}
-
-/* Comfortable, on-theme scrollbar for the feed (WebKit/Chromium). */
-.support-feed::-webkit-scrollbar {
-  width: 12px;
-}
-.support-feed::-webkit-scrollbar-track {
-  background: transparent;
-  margin: 4px 0;
-}
-.support-feed::-webkit-scrollbar-thumb {
-  background: var(--border-strong, #cbd5e1);
-  border-radius: 999px;
-  /* Transparent border makes the visible thumb sit inset from the track edge,
-     giving it a floating-pill look instead of touching the card edge. */
-  border: 3px solid transparent;
-  background-clip: content-box;
-  min-height: 48px;   /* never let the thumb shrink to a tiny sliver */
-}
-.support-feed::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted, #94a3b8);
-  background-clip: content-box;
 }
 
 .feed-item {
