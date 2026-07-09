@@ -69,28 +69,28 @@
       </a>
       
       <nav class="nav-links">
-        <a href="./index.html#sandbox">Smart Capture</a>
-        <a href="./index.html#key-features">Key Features</a>
-        <a href="./index.html#integration">How It Integrates</a>
-        <a href="./index.html#simulator">Interactive Demo</a>
-        <a href="./index.html#flow-builder">Flow Lenses</a>
-        <a href="./index.html#faq">FAQ</a>
+        <a href="./index.html#key-features">Features</a>
+        <a href="./index.html#integration">How It Works</a>
+        <a href="./index.html#simulator">Demo</a>
+        <a href="./support.html">Support</a>
         <a href="./privacy.html" class="active">Trust Center</a>
       </nav>
-      
+
       <div class="nav-cta">
         <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="nav-btn-install">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Add to Chrome
         </a>
       </div>
 
-      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
       </button>
     </div>
   </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
 
   <!-- Main Grid -->
   <div class="trust-center-container">
@@ -253,9 +253,9 @@
                 <td>ForceLens cannot see, store, or transmit your broader internet browsing details.</td>
               </tr>
               <tr>
-                <td class="strong-col">Support Portal Submissions</td>
+                <td class="strong-col">Support &amp; Feedback Submissions</td>
                 <td><span class="badge badge-optin">Opt-In Only</span></td>
-                <td>Email details and bug reports that you voluntarily submit through our support portal to resolve extension issues.</td>
+                <td>Bug reports and feature requests you voluntarily post on our website support portal, plus the star rating and comments you optionally send from the in-extension feedback form. Includes any email you choose to provide.</td>
               </tr>
             </tbody>
           </table>
@@ -415,7 +415,7 @@
                   <span class="perm-col-value">Allows direct client-to-API network requests for optional AI analysis and optional support community board.</span>
                 </div>
               </div>
-              <p>These optional host permissions (e.g. <code>api.anthropic.com</code>, <code>api.openai.com</code>, <code>api.groq.com</code>, <code>openrouter.ai</code>, and <code>supabase.co</code>) are not requested at installation. They are requested dynamically only when you choose to configure an AI provider or click to open the feedback board. They connect your browser directly to the endpoint with zero intermediate gateway servers.</p>
+              <p>These optional host permissions (e.g. <code>api.anthropic.com</code>, <code>api.openai.com</code>, <code>api.groq.com</code>, <code>openrouter.ai</code>, and <code>supabase.co</code>) are not requested at installation. They are requested dynamically only when you choose to configure an AI provider or submit star-rating feedback. They connect your browser directly to the endpoint with zero intermediate gateway servers.</p>
             </div>
           </div>
 
@@ -461,12 +461,12 @@
         <ol>
           <li><strong>Your Salesforce Instances:</strong> Necessary to interact with log headers, cookies, and source elements. Data flows directly between your browser and your Salesforce org — it never passes through our servers.</li>
           <li><strong>Your AI Providers:</strong> Only if AI analysis is configured and actively requested by you. Log segments are sent directly from your browser to the provider you chose (Anthropic, OpenAI, Groq, or OpenRouter) using your own API key.</li>
-          <li><strong>Voluntary Support Portal (Supabase):</strong> If — and only if — you choose to submit a bug report, feature request, or feedback, that content is stored in our support database hosted on <strong>Supabase</strong> (a third-party backend-as-a-service provider). What is stored: the issue title and description, any reproduction steps, an optional email address you provide, and any screenshot you choose to attach. This information is used strictly to triage and resolve extension defects.</li>
+          <li><strong>Voluntary Support &amp; Feedback (Supabase):</strong> If — and only if — you choose to submit something, that content is stored in our support database hosted on <strong>Supabase</strong> (a third-party backend-as-a-service provider). This applies to two optional actions: (1) bug reports and feature requests you post on the ForceLens <strong>Support Portal on our website</strong> — storing the title and description, any reproduction steps, an optional email address, and any screenshot you attach; and (2) the in-extension <strong>“Share your feedback”</strong> form, which stores your star rating (1–5) and any comment you write, plus an optional email. This information is used strictly to triage extension defects and improve the product.</li>
         </ol>
         <h3>How your support data is protected</h3>
         <ul>
           <li><strong>Email addresses are private.</strong> Any email you submit is stored in a restricted table that is readable only by you (the submitter) and our support team. It is never exposed on the public issue board and is never shared or sold.</li>
-          <li><strong>Public issue board.</strong> The non-email contents of issues and replies (titles, descriptions, status) are visible to other ForceLens users on the in-app community support board, so duplicate reports can be avoided. Do not include confidential information, credentials, or customer data in the public fields.</li>
+          <li><strong>Public issue board.</strong> The non-email contents of issues and replies (titles, descriptions, status) are visible to other ForceLens users on the community support board on our website, so duplicate reports can be avoided. Do not include confidential information, credentials, or customer data in the public fields. Star-rating feedback sent from the extension is private and is never shown on the public board.</li>
           <li><strong>Screenshots are publicly accessible by link.</strong> Any screenshot you attach is uploaded to a public storage bucket and is accessible to anyone who has its URL. Only attach screenshots that do not contain sensitive data, and review them before uploading.</li>
           <li><strong>Anonymous identity.</strong> The support portal signs you in anonymously (a random identifier). We do not require an account, name, or login.</li>
         </ul>
@@ -551,12 +551,12 @@
         <div class="contact-body">
           <h3>Questions about our Privacy Commitment?</h3>
           <p>Have concerns about Salesforce token handling or AI log summaries? Reach out directly via our developer portal.</p>
-          <a class="email-btn" href="mailto:aveniorlabs.solutions@gmail.com" id="contact-email-btn">
+          <a class="email-btn" href="mailto:forcelens.support@gmail.com" id="contact-email-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; display: inline-block; vertical-align: middle;">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
               <polyline points="22,6 12,13 2,6"></polyline>
             </svg>
-            aveniorlabs.solutions@gmail.com
+            forcelens.support@gmail.com
           </a>
         </div>
       </div>

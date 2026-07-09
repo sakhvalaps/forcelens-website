@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>ForceLens — Support &amp; Collaboration Portal</title>
+  <meta name="description" content="Report a bug, suggest a feature, and track the ForceLens community board. Every report is public so you can see what's already been raised and resolved.">
+  <meta name="robots" content="index, follow">
+
+  <link rel="icon" type="image/svg+xml" href="./assets/icon32.svg?v=2">
+  <link rel="apple-touch-icon" href="./assets/icon32.svg?v=2">
+  <link rel="shortcut icon" href="./assets/icon32.svg?v=2" type="image/x-icon">
+  <link rel="canonical" href="https://forcelens.vercel.app/support.html">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://forcelens.vercel.app/support.html">
+  <meta property="og:title" content="ForceLens — Support &amp; Collaboration Portal">
+  <meta property="og:description" content="Report a bug, suggest a feature, and track the ForceLens community board.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
+  <meta property="og:site_name" content="ForceLens">
+
+  <link rel="stylesheet" href="./css/style.css?v=114">
+  <link rel="stylesheet" href="./css/support.css?v=4">
+</head>
+<body>
+
+  <!-- Navigation Bar (shared with the rest of the site) -->
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="./index.html" class="nav-brand">
+        <img src="./assets/icon32.svg?v=2" alt="ForceLens Logo">
+        <span>ForceLens</span>
+      </a>
+
+      <nav class="nav-links">
+        <a href="./index.html#key-features">Features</a>
+        <a href="./index.html#integration">How It Works</a>
+        <a href="./index.html#simulator">Demo</a>
+        <a href="./support.html" class="active">Support</a>
+        <a href="./privacy.html">Trust Center</a>
+      </nav>
+
+      <div class="nav-cta">
+        <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="nav-btn-install">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Add to Chrome
+        </a>
+      </div>
+
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <!-- Support Portal -->
+  <main class="support-page-shell">
+    <div class="support-root">
+
+      <!-- Header -->
+      <header class="support-header">
+        <div class="support-brand">
+          <div class="brand-titles">
+            <h2>ForceLens Support Portal</h2>
+            <p>Bugs Tracker, Feature Suggestions &amp; Community Dashboard</p>
+          </div>
+        </div>
+        <div class="support-header-actions">
+          <a href="./index.html" class="support-btn support-btn-ghost">Back to Home</a>
+        </div>
+      </header>
+
+      <!-- Stats Dashboard Banner (starts as a shimmer, never a fake number) -->
+      <section class="support-stats-banner">
+        <div class="stat-card">
+          <div class="stat-num is-loading" id="stat-total-bugs">0</div>
+          <div class="stat-label">Bugs Reported</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num stat-success is-loading" id="stat-fixed-bugs">0</div>
+          <div class="stat-label">Bugs Resolved</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num stat-info is-loading" id="stat-suggestions">0</div>
+          <div class="stat-label">Suggestions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num stat-primary is-loading" id="stat-rate">0%</div>
+          <div class="stat-label">Resolution Rate</div>
+        </div>
+      </section>
+
+      <!-- Main Workspace -->
+      <div class="support-workspace">
+
+        <!-- Left: Forms & Contact -->
+        <aside class="support-aside">
+
+          <div class="form-tabs">
+            <button class="form-tab active" data-form="bug">Report Bug</button>
+            <button class="form-tab" data-form="feature">Suggest Feature</button>
+          </div>
+
+          <div class="support-card form-card">
+            <form id="support-form">
+              <input type="hidden" id="form-type" value="bug">
+
+              <div class="field-group">
+                <label for="form-title">Title</label>
+                <input type="text" id="form-title" placeholder="Brief summary of the issue or feature request" required>
+              </div>
+
+              <div class="field-group">
+                <label for="form-desc">Description</label>
+                <textarea id="form-desc" rows="4" placeholder="Detail the issue or feature request..." required></textarea>
+              </div>
+
+              <div class="field-group" id="steps-group">
+                <label for="form-steps">Steps to Reproduce</label>
+                <textarea id="form-steps" rows="3" placeholder="1. Open Log Explorer&#10;2. Click line 42&#10;3. Observe crash..."></textarea>
+              </div>
+
+              <div class="field-group">
+                <label>Attachments (Screenshots)</label>
+                <div id="image-dropzone" class="image-dropzone">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  <span>Drag &amp; drop screenshot or click to browse</span>
+                  <input type="file" id="image-input" accept="image/*" style="display: none;">
+                </div>
+                <div id="image-preview-container" class="image-preview-container" style="display: none;">
+                  <img id="image-preview" src="" alt="Screenshot Preview">
+                  <button type="button" id="remove-image-btn" class="remove-image-btn">&times;</button>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label for="form-email">Your Contact Email (Optional)</label>
+                <input type="email" id="form-email" placeholder="so we can notify you when resolved">
+              </div>
+
+              <button type="submit" class="support-btn support-btn-primary" style="width: 100%;">
+                Submit to Collaboration Board
+              </button>
+            </form>
+          </div>
+
+          <div class="support-card contact-card">
+            <h4>Direct Contact &amp; Info</h4>
+            <p>Have security disclosures or direct inquiries? Reach out directly:</p>
+            <div class="contact-methods">
+              <a href="mailto:forcelens.support@gmail.com" class="contact-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                <span>forcelens.support@gmail.com</span>
+              </a>
+              <div class="contact-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span>Version: 1.0.0 (Production)</span>
+              </div>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- Right: Community Board -->
+        <main class="support-main">
+          <div class="feed-header">
+            <h3>Collaboration Board</h3>
+            <div class="feed-filters">
+              <input type="text" id="feed-search" placeholder="Search reports...">
+              <select id="filter-type" class="fl-native-select" data-custom-select>
+                <option value="all">All Types</option>
+                <option value="bug">Bugs</option>
+                <option value="feature">Suggestions</option>
+              </select>
+              <select id="filter-status" class="fl-native-select" data-custom-select>
+                <option value="all">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="fixed">Fixed / Done</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="support-feed" class="support-feed">
+            <div class="support-feed-empty">Loading community reports…</div>
+          </div>
+        </main>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer (shared with the rest of the site) -->
+  <footer class="main-footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <img src="./assets/icon16.svg?v=2" alt="ForceLens Icon">
+        <span class="copyright">Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+      </div>
+      <div class="footer-right">
+        <a href="./support.html">Support Portal</a>
+        <a href="./privacy.html">Privacy Policy &amp; Trust Center</a>
+        <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+      </div>
+    </div>
+    <div class="footer-credit-row">
+      Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span>
+    </div>
+  </footer>
+
+  <!-- Screenshot Lightbox -->
+  <div id="support-lightbox" class="support-lightbox" style="display: none;">
+    <div class="support-lightbox-content">
+      <img id="support-lightbox-img" src="" alt="Expanded View">
+      <button id="support-lightbox-close" class="support-lightbox-close">&times;</button>
+    </div>
+  </div>
+
+  <!-- Supabase JS client (CDN — no extension CSP here) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Shared nav toggle behaviour -->
+  <script src="./js/app.js?v=101"></script>
+  <!-- Themed custom dropdowns for the board filters -->
+  <script src="./js/custom-select.js?v=1"></script>
+  <!-- Support portal logic -->
+  <script src="./js/support.js?v=3"></script>
+</body>
+</html>

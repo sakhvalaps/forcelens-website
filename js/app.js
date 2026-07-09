@@ -513,29 +513,58 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /**
-   * Handles responsive navigation drawer overlay toggling behaviors.
+   * Slide-in mobile navigation: hamburger opens a right-side panel with a
+   * dimmed overlay and a body scroll-lock. Closes on link click, overlay
+   * click, Escape, or resizing back up to the desktop layout.
    */
   const navToggle = document.getElementById('nav-toggle');
   const navHeader = document.querySelector('.nav-header');
-  
+  const navOverlay = document.getElementById('nav-overlay');
+
   if (navToggle && navHeader) {
+    const openMenu = () => {
+      navHeader.classList.add('nav-mobile-open');
+      document.body.classList.add('nav-open');
+      navToggle.setAttribute('aria-expanded', 'true');
+    };
+    const closeMenu = () => {
+      navHeader.classList.remove('nav-mobile-open');
+      document.body.classList.remove('nav-open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    };
+    const toggleMenu = () => {
+      navHeader.classList.contains('nav-mobile-open') ? closeMenu() : openMenu();
+    };
+
     navToggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      navHeader.classList.toggle('nav-mobile-open');
+      toggleMenu();
     });
 
-    const mobileLinks = navHeader.querySelectorAll('.nav-links a');
-    mobileLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        navHeader.classList.remove('nav-mobile-open');
-      });
+    navHeader.querySelectorAll('.nav-links a').forEach((link) => {
+      link.addEventListener('click', closeMenu);
     });
 
-    document.addEventListener('click', (e) => {
-      if (navHeader.classList.contains('nav-mobile-open') && !navHeader.contains(e.target)) {
-        navHeader.classList.remove('nav-mobile-open');
-      }
+    if (navOverlay) navOverlay.addEventListener('click', closeMenu);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMenu();
     });
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 1024) closeMenu();
+    });
+  }
+
+  /**
+   * Adds a subtle shadow to the sticky header once the page is scrolled.
+   */
+  if (navHeader) {
+    const onScroll = () => {
+      navHeader.classList.toggle('is-scrolled', window.scrollY > 8);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
   }
 
   /**
