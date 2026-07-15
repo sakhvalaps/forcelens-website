@@ -34,20 +34,20 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const panelImages = {
-    overview: './assets/forcelens_tab_overview.png?v=hd',
-    'log-explorer': './assets/forcelens_tab_log_explorer.png?v=hd',
-    'execution-tree': './assets/forcelens_tab_execution_tree.png?v=hd',
-    'order-of-execution': './assets/forcelens_tab_order_of_execution.png?v=hd',
-    'apex-debug': './assets/forcelens_tab_apex_debug.png?v=hd',
-    'ai-pulse': './assets/forcelens_tab_ai_pulse.png?v=hd',
-    errors: './assets/forcelens_tab_errors.png?v=hd',
-    timeline: './assets/forcelens_tab_timeline.png?v=hd',
-    dml: './assets/forcelens_tab_dml.png?v=hd',
-    soql: './assets/forcelens_tab_soql.png?v=hd',
-    performance: './assets/forcelens_tab_performance.png?v=hd',
-    limits: './assets/forcelens_tab_limits.png?v=hd',
-    byok: './assets/forcelens_byok.png?v=hd',
-    settings: './assets/forcelens_settings.png?v=hd'
+    overview: './assets/forcelens_tab_overview.webp?v=hd',
+    'log-explorer': './assets/forcelens_tab_log_explorer.webp?v=hd',
+    'execution-tree': './assets/forcelens_tab_execution_tree.webp?v=hd',
+    'order-of-execution': './assets/forcelens_tab_order_of_execution.webp?v=hd',
+    'apex-debug': './assets/forcelens_tab_apex_debug.webp?v=hd',
+    'ai-pulse': './assets/forcelens_tab_ai_pulse.webp?v=hd',
+    errors: './assets/forcelens_tab_errors.webp?v=hd',
+    timeline: './assets/forcelens_tab_timeline.webp?v=hd',
+    dml: './assets/forcelens_tab_dml.webp?v=hd',
+    soql: './assets/forcelens_tab_soql.webp?v=hd',
+    performance: './assets/forcelens_tab_performance.webp?v=hd',
+    limits: './assets/forcelens_tab_limits.webp?v=hd',
+    byok: './assets/forcelens_byok.webp?v=hd',
+    settings: './assets/forcelens_settings.webp?v=hd'
   };
 
   sidebarItems.forEach(item => {
@@ -87,9 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const tourImages = {
-    grid: './assets/forcelens_integration_logs_grid.png?v=hd',
-    detail: './assets/forcelens_integration_log_detail.png?v=hd',
-    console: './assets/forcelens_integration_dev_console.png?v=hd'
+    grid: './assets/forcelens_integration_logs_grid.webp?v=hd',
+    detail: './assets/forcelens_integration_log_detail.webp?v=hd',
+    console: './assets/forcelens_integration_dev_console.webp?v=hd'
   };
 
   tourSteps.forEach(step => {
@@ -125,10 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const flowAddress = document.getElementById('flow-browser-address');
 
   const flowImages = {
-    '1': './assets/forcelens_flow_integration_canvas.png?v=hd',
-    '2': './assets/forcelens_flow_progress.png?v=hd',
-    '3': './assets/forcelens_flow_personas.png?v=hd',
-    '4': './assets/forcelens_flow_result.png?v=hd'
+    '1': './assets/forcelens_flow_integration_canvas.webp?v=hd',
+    '2': './assets/forcelens_flow_progress.webp?v=hd',
+    '3': './assets/forcelens_flow_personas.webp?v=hd',
+    '4': './assets/forcelens_flow_result.webp?v=hd'
   };
 
   const flowAddresses = {
