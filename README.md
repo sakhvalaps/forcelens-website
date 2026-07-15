@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://forcelens.vercel.app/"><img src="https://img.shields.io/badge/Website-forcelens.vercel.app-blue.svg?style=flat-square&logo=vercel" alt="Website"></a>
-  <a href="https://chrome.google.com/webstore"><img src="https://img.shields.io/badge/Chrome_Extension-Free-indigo.svg?style=flat-square&logo=google-chrome&logoColor=white" alt="Chrome Web Store"></a>
+  <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi?utm_source=item-share-cb"><img src="https://img.shields.io/badge/Chrome_Extension-Free-indigo.svg?style=flat-square&logo=google-chrome&logoColor=white" alt="Chrome Web Store"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-All%20Rights%20Reserved-lightgrey.svg?style=flat-square" alt="All Rights Reserved License"></a>
   <img src="https://img.shields.io/badge/Security-Local--First-green.svg?style=flat-square" alt="Security: Local First">
   <img src="https://img.shields.io/badge/AI-BYOK-orange.svg?style=flat-square" alt="AI: BYOK ready">
@@ -101,7 +101,7 @@ ForceLens adds a single, powerful **"Inspect Log"** button in the three places y
 ## ✦ Getting Started
 
 ### Installation
-1. Search **ForceLens** in the [Chrome Web Store](https://chrome.google.com/webstore).
+1. Visit the [Chrome Web Store](https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi?utm_source=item-share-cb) page.
 2. Click **Add to Chrome**.
 3. Open any Salesforce Sandbox, Scratch Org, Developer Edition, or Production environment.
 
