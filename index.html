@@ -6,77 +6,141 @@
   <meta name="theme-color" content="#6366f1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <title>ForceLens — Salesforce Apex & Flow Intelligence Engine</title>
-  <meta name="description" content="Stop reading logs, start seeing the execution. ForceLens reconstructs Salesforce's true order of execution, analyzes Flows through 4 expert lenses, and explains it all with your own AI key. Local-first.">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>ForceLens — Free Salesforce Debug Log Analyzer for Apex &amp; Flow</title>
+  <meta name="description" content="ForceLens is a free Salesforce debug log analyzer Chrome extension. Capture Apex logs in one click, see the true order of execution, analyze Flows, SOQL, CPU time and governor limits — all locally, with your own AI key.">
   <meta name="robots" content="index, follow">
-  
+
   <link rel="icon" type="image/svg+xml" href="./assets/icon32.svg?v=2">
-  <link rel="apple-touch-icon" href="./assets/icon32.svg?v=2">
-  <link rel="shortcut icon" href="./assets/icon32.svg?v=2" type="image/x-icon">
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/icon32.png">
+  <link rel="apple-touch-icon" href="./assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
   <link rel="canonical" href="https://forcelens.vercel.app/">
+  <link rel="preload" as="image" href="./assets/forcelens_home.webp?v=hd" type="image/webp" fetchpriority="high">
 
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://forcelens.vercel.app/">
-  <meta property="og:title" content="ForceLens — Salesforce Apex & Flow Intelligence Engine">
+  <meta property="og:title" content="ForceLens — Free Salesforce Debug Log Analyzer for Apex &amp; Flow">
   <meta property="og:description" content="See the exact order Salesforce executes — triggers, flows, queries — then explain it with the AI model you already pay for. Bring your own key. Local-first.">
   <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
   <meta property="og:site_name" content="ForceLens">
 
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://forcelens.vercel.app/">
-  <meta property="twitter:title" content="ForceLens — Salesforce Apex & Flow Intelligence Engine">
+  <meta property="twitter:title" content="ForceLens — Free Salesforce Debug Log Analyzer for Apex &amp; Flow">
   <meta property="twitter:description" content="See the exact order Salesforce executes — triggers, flows, queries — then explain it with the AI model you already pay for. Bring your own key. Local-first.">
   <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
 
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "ForceLens",
-    "url": "https://forcelens.vercel.app/"
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://forcelens.vercel.app/#website",
+        "name": "ForceLens",
+        "url": "https://forcelens.vercel.app/",
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://forcelens.vercel.app/#organization",
+        "name": "ForceLens",
+        "url": "https://forcelens.vercel.app/",
+        "logo": "https://forcelens.vercel.app/assets/icon128.png",
+        "email": "forcelens.support@gmail.com",
+        "founder": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://forcelens.vercel.app/#software",
+        "name": "ForceLens",
+        "url": "https://forcelens.vercel.app/",
+        "image": "https://forcelens.vercel.app/assets/forcelens_home.png",
+        "screenshot": "https://forcelens.vercel.app/assets/forcelens_tab_overview.png",
+        "downloadUrl": "https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi",
+        "installUrl": "https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi",
+        "softwareVersion": "1.1.0",
+        "operatingSystem": "Windows, macOS, Linux, ChromeOS",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "Salesforce Debug Log Analyzer",
+        "browserRequirements": "Requires Google Chrome or any Chromium-based browser",
+        "author": { "@id": "https://forcelens.vercel.app/#organization" },
+        "offers": { "@type": "Offer", "price": "0.00", "priceCurrency": "USD" },
+        "featureList": [
+          "One-click Smart Capture of Salesforce debug logs (automatic trace flag setup)",
+          "Order of execution reconstruction from Apex debug logs",
+          "SOQL, DML, CPU time, heap and governor limit analysis",
+          "Salesforce Flow analysis through Developer, Business Analyst, QA and Security lenses",
+          "AI explanations with your own API key (Claude, GPT, Groq, OpenRouter)",
+          "Local-first: logs and keys never leave your machine"
+        ],
+        "description": "ForceLens is a free Salesforce debug log analyzer Chrome extension. It captures Apex debug logs in one click, reconstructs the true order of execution, analyzes Flows, SOQL, CPU time and governor limits, and explains findings with your own AI key — all locally in your browser."
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://forcelens.vercel.app/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is it really free? What's the catch?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No catch. The extension is free to install and use. Log capture, order-of-execution reconstruction, and Flow analysis all run locally at no cost. AI explanations use an API key you supply, so you only ever pay your own provider for what you actually use." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is my Salesforce data safe? Where does it go?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Your debug logs are parsed in your own browser and stored only in your local browser storage. ForceLens has no server that receives or holds your logs. The only outbound calls are the ones you explicitly trigger — AI requests that go directly from your browser to the provider whose key you configured." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an AI API key? What if I don't have one?",
+            "acceptedAnswer": { "@type": "Answer", "text": "A key is only needed for the AI-powered explanations. Everything else — Smart Capture, the execution tree, SOQL/DML and limits views, and Flow analysis — works without any key at all. When you're ready for AI, plug in Claude, GPT, Groq, or OpenRouter." }
+          },
+          {
+            "@type": "Question",
+            "name": "Which orgs and editions does it work with?",
+            "acceptedAnswer": { "@type": "Answer", "text": "It works wherever you read Apex debug logs — sandboxes, developer orgs, and production — across both Lightning Experience and Classic, plus the Developer Console and Flow Builder." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do my logs or keys ever leave my machine?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Your API key is stored locally in your browser and is sent only to the AI provider it belongs to, on requests you initiate. Logs stay local unless you send a snippet to your chosen AI for explanation. ForceLens never routes either through a server of its own." }
+          },
+          {
+            "@type": "Question",
+            "name": "How is this different from the built-in log viewer?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Salesforce shows you a raw, line-by-line log. ForceLens reconstructs the true order of execution — triggers, flows, validation, queries and limits — captures logs in one click, reads Flows through expert lenses, and explains it all with the AI model you choose. It's an intelligence layer, not just a viewer." }
+          }
+        ]
+      }
+    ]
   }
   </script>
 
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "ForceLens",
-    "operatingSystem": "Windows, macOS, Linux, ChromeOS",
-    "applicationCategory": "DeveloperApplication",
-    "browserRequirements": "Requires Google Chrome or any Chromium-based browser",
-    "offers": {
-      "@type": "Offer",
-      "price": "0.00",
-      "priceCurrency": "USD"
-    },
-    "description": "Stop reading logs, start seeing the execution. ForceLens reconstructs Salesforce's true order of execution, analyzes Flows through 4 expert lenses, and explains it all with your own AI key. Local-first."
-  }
-  </script>
-
-  <link rel="stylesheet" href="./css/style.css?v=114">
+  <link rel="stylesheet" href="./css/style.css?v=116">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to main content</a>
 
   <!-- Navigation Bar -->
   <header class="nav-header">
     <div class="nav-container">
-      <a href="#" class="nav-brand">
-        <img src="./assets/icon32.svg?v=2" alt="ForceLens Logo">
+      <a href="/" class="nav-brand">
+        <img src="./assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
         <span>ForceLens</span>
       </a>
-      
+
       <nav class="nav-links">
         <a href="#key-features">Features</a>
         <a href="#integration">How It Works</a>
         <a href="#simulator">Demo</a>
-        <a href="./support.html">Support</a>
-        <a href="./privacy.html">Trust Center</a>
+        <a href="/salesforce-debug-log-analyzer">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
       </nav>
 
       <div class="nav-cta">
-        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi?utm_source=item-share-cb" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="nav-btn-install">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="nav-btn-install">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Add to Chrome
         </a>
@@ -91,6 +155,7 @@
   </header>
   <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
 
+  <main id="main">
   <!-- Hero Section -->
   <section class="hero-section">
     <div class="hero-left">
@@ -104,7 +169,7 @@
       </p>
 
       <div class="hero-ctas">
-        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi?utm_source=item-share-cb" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="hero-btn-install">Add to Chrome — Free</a>
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="hero-btn-install">Add to Chrome — Free</a>
         <a href="#sandbox" class="btn btn-secondary">▶ Watch it capture</a>
       </div>
 
@@ -138,7 +203,7 @@
             </div>
           </div>
           <div class="premium-browser-body">
-            <img src="./assets/forcelens_home.png?v=hd" alt="ForceLens Workspace Home Dashboard" class="premium-browser-img">
+            <img src="./assets/forcelens_home.webp?v=hd" alt="ForceLens Workspace Home Dashboard" class="premium-browser-img" width="1919" height="870" decoding="async" fetchpriority="high">
           </div>
         </div>
       </div>
@@ -168,6 +233,17 @@
         <div class="stat-label">Smart Capture</div>
         <div class="stat-subtext">Automates Trace Flag creation in Salesforce</div>
       </div>
+    </div>
+  </section>
+
+  <!-- What is ForceLens (definition for readers and answer engines) -->
+  <section class="compat-band" aria-label="What is ForceLens">
+    <div class="compat-container" style="flex-direction:column; text-align:center; gap:10px; max-width:820px; margin:0 auto;">
+      <h2 style="margin:0; font-size:22px;">What is ForceLens?</h2>
+      <p style="margin:0; color:var(--text-secondary); line-height:1.7;">
+        ForceLens is a free Chrome extension that works as a Salesforce debug log analyzer. It captures Apex debug logs in one click, reconstructs the true order of execution, and analyzes Flows, SOQL queries, CPU time, and governor limits — entirely in your browser, with optional AI explanations powered by your own API key.
+        New to debug logs? Start with our <a href="/salesforce-debug-log-analyzer">complete guide to Salesforce debug log analysis</a>.
+      </p>
     </div>
   </section>
 
@@ -398,7 +474,7 @@
   <section class="spotlight-band" id="key-features">
     <div class="section-header">
       <div class="badge badge-indigo">The center of attraction</div>
-      <h2>What no other log tool gives you</h2>
+      <h2>A Salesforce log analyzer that no other tool matches</h2>
       <p>ForceLens is not "just a log viewer." It reconstructs execution, reads Flows like an expert, runs on the AI model you choose, and keeps every session on your machine.</p>
     </div>
 
@@ -431,7 +507,7 @@
               <div class="premium-browser-address">chrome-extension://forcelens/settings/byok</div>
             </div>
             <div class="premium-browser-body" style="line-height:0;">
-              <img src="./assets/forcelens_byok.png?v=hd" alt="ForceLens Bring Your Own Key configuration" class="premium-browser-img">
+              <img src="./assets/forcelens_byok.webp?v=hd" alt="ForceLens Bring Your Own Key configuration" class="premium-browser-img" width="1919" height="869" decoding="async" loading="lazy">
             </div>
           </div>
         </div>
@@ -458,7 +534,7 @@
               <div class="premium-browser-address">chrome-extension://forcelens/workspace/order-of-execution</div>
             </div>
             <div class="premium-browser-body" style="line-height:0;">
-              <img src="./assets/forcelens_tab_order_of_execution.png?v=hd" alt="ForceLens Order of Execution analysis" class="premium-browser-img">
+              <img src="./assets/forcelens_tab_order_of_execution.webp?v=hd" alt="ForceLens Order of Execution analysis" class="premium-browser-img" width="1919" height="873" decoding="async" loading="lazy">
             </div>
           </div>
         </div>
@@ -488,7 +564,7 @@
               <div class="premium-browser-address" id="lens-address">chrome-extension://forcelens/flow/select-lens</div>
             </div>
             <div class="premium-browser-body" style="line-height:0;">
-              <img src="./assets/forcelens_flow_personas.png?v=hd" alt="ForceLens Flow analysis lenses" class="premium-browser-img" id="lens-img">
+              <img src="./assets/forcelens_flow_personas.webp?v=hd" alt="ForceLens Flow analysis lenses" class="premium-browser-img" id="lens-img" width="1919" height="871" decoding="async" loading="lazy">
             </div>
           </div>
         </div>
@@ -515,7 +591,7 @@
               <div class="premium-browser-address">chrome-extension://forcelens/history</div>
             </div>
             <div class="premium-browser-body" style="line-height:0;">
-              <img src="./assets/forcelens_log_history.png?v=hd" alt="ForceLens Log History — locally stored sessions" class="premium-browser-img">
+              <img src="./assets/forcelens_log_history.webp?v=hd" alt="ForceLens Log History — locally stored sessions" class="premium-browser-img" width="1919" height="870" decoding="async" loading="lazy">
             </div>
           </div>
         </div>
@@ -549,7 +625,7 @@
                 <div class="premium-browser-address">https://orgfarm.lightning.force.com/lightning/setup/ApexDebugLogs</div>
               </div>
               <div class="premium-browser-body" style="line-height:0;">
-                <img src="./assets/forcelens_integration_logs_grid.png?v=hd" alt="Salesforce Debug Logs List Mockup" class="premium-browser-img">
+                <img src="./assets/forcelens_integration_logs_grid.webp?v=hd" alt="Salesforce Debug Logs List Mockup" class="premium-browser-img" width="1577" height="710" decoding="async" loading="lazy">
               </div>
             </div>
           </div>
@@ -571,7 +647,7 @@
                 <div class="premium-browser-address">https://orgfarm.lightning.force.com/lightning/setup/ApexDebugLogs/07Lgk000000N019</div>
               </div>
               <div class="premium-browser-body" style="line-height:0;">
-                <img src="./assets/forcelens_integration_log_detail.png?v=hd" alt="Salesforce Debug Log Detail Mockup" class="premium-browser-img">
+                <img src="./assets/forcelens_integration_log_detail.webp?v=hd" alt="Salesforce Debug Log Detail Mockup" class="premium-browser-img" width="1572" height="692" decoding="async" loading="lazy">
               </div>
             </div>
           </div>
@@ -593,7 +669,7 @@
                 <div class="premium-browser-address">https://orgfarm-79dc04f179-dev-ed.develop.my.salesforce.com/_ui/common/apex/debug/ApexCSIPage</div>
               </div>
               <div class="premium-browser-body" style="line-height:0;">
-                <img src="./assets/forcelens_integration_dev_console.png?v=hd" alt="Salesforce Developer Console Mockup" class="premium-browser-img">
+                <img src="./assets/forcelens_integration_dev_console.webp?v=hd" alt="Salesforce Developer Console Mockup" class="premium-browser-img" width="1913" height="1001" decoding="async" loading="lazy">
               </div>
             </div>
           </div>
@@ -612,7 +688,7 @@
             </div>
           </div>
           <div class="premium-browser-body" style="line-height:0;">
-            <img src="./assets/forcelens_integration_logs_grid.png?v=hd" alt="Salesforce Integration View" class="premium-browser-img" id="tour-screen-body-target">
+            <img src="./assets/forcelens_integration_logs_grid.webp?v=hd" alt="Salesforce Integration View" class="premium-browser-img" id="tour-screen-body-target" width="1577" height="710" decoding="async" loading="lazy">
           </div>
         </div>
       </div>
@@ -657,7 +733,7 @@
           <div class="premium-browser-address" id="sim-workspace-tab-title">chrome-extension://forcelens/workspace/overview</div>
         </div>
         <div class="premium-browser-body" id="workspace-viewport">
-          <img src="./assets/forcelens_tab_overview.png?v=hd" alt="ForceLens Workspace Page View" class="premium-browser-img sim-fade-in" id="workspace-viewport-img">
+          <img src="./assets/forcelens_tab_overview.webp?v=hd" alt="ForceLens Workspace Page View" class="premium-browser-img sim-fade-in" id="workspace-viewport-img" width="1919" height="867" decoding="async" loading="lazy">
         </div>
       </div>
     </div>
@@ -686,7 +762,7 @@
               </div>
             </div>
             <div class="premium-browser-body" style="line-height:0;">
-              <img src="./assets/forcelens_flow_integration_canvas.png?v=hd" alt="Salesforce Flow Analyzer Canvas Integration" class="premium-browser-img" id="flow-stepper-img" style="max-height: 380px;">
+              <img src="./assets/forcelens_flow_integration_canvas.webp?v=hd" alt="Salesforce Flow Analyzer Canvas Integration" class="premium-browser-img" id="flow-stepper-img" style="max-height: 380px;" width="1917" height="810" decoding="async" loading="lazy">
             </div>
           </div>
         </div>
@@ -706,7 +782,7 @@
                   <div class="premium-browser-address">https://orgfarm.lightning.force.com/lightning/setup/Flows/AddCaseComment</div>
                 </div>
                 <div class="premium-browser-body" style="line-height:0;">
-                  <img src="./assets/forcelens_flow_integration_canvas.png?v=hd" alt="Salesforce Flow Analyzer Canvas Mockup" class="premium-browser-img">
+                  <img src="./assets/forcelens_flow_integration_canvas.webp?v=hd" alt="Salesforce Flow Analyzer Canvas Mockup" class="premium-browser-img" width="1917" height="810" decoding="async" loading="lazy">
                 </div>
               </div>
             </div>
@@ -726,7 +802,7 @@
                   <div class="premium-browser-address">https://orgfarm.lightning.force.com/lightning/setup/Flows/Analyzing...</div>
                 </div>
                 <div class="premium-browser-body" style="line-height:0;">
-                  <img src="./assets/forcelens_flow_progress.png?v=hd" alt="Flow Parser Progress Mockup" class="premium-browser-img">
+                  <img src="./assets/forcelens_flow_progress.webp?v=hd" alt="Flow Parser Progress Mockup" class="premium-browser-img" width="1919" height="872" decoding="async" loading="lazy">
                 </div>
               </div>
             </div>
@@ -746,7 +822,7 @@
                   <div class="premium-browser-address">https://orgfarm.lightning.force.com/lightning/setup/Flows/FlowAnalyzerResult</div>
                 </div>
                 <div class="premium-browser-body" style="line-height:0;">
-                  <img src="./assets/forcelens_flow_analyzer.png?v=hd" alt="Flow Lens Personas Mockup" class="premium-browser-img">
+                  <img src="./assets/forcelens_flow_analyzer.webp?v=hd" alt="Flow Lens Personas Mockup" class="premium-browser-img" width="1024" height="463" decoding="async" loading="lazy">
                 </div>
               </div>
             </div>
@@ -766,7 +842,7 @@
                   <div class="premium-browser-address">https://orgfarm.lightning.force.com/lightning/setup/Flows/FlowAnalysisExport</div>
                 </div>
                 <div class="premium-browser-body" style="line-height:0;">
-                  <img src="./assets/forcelens_flow_result.png?v=hd" alt="Flow Analysis Export Report Mockup" class="premium-browser-img">
+                  <img src="./assets/forcelens_flow_result.webp?v=hd" alt="Flow Analysis Export Report Mockup" class="premium-browser-img" width="1919" height="868" decoding="async" loading="lazy">
                 </div>
               </div>
             </div>
@@ -874,31 +950,64 @@
       </div>
 
       <div class="cta-buttons">
-        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi?utm_source=item-share-cb" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="cta-btn-install">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="cta-btn-install">
           Add to Chrome (Free)
         </a>
-        <a href="./privacy.html" class="btn btn-secondary">
+        <a href="/privacy" class="btn btn-secondary">
           Security &amp; Privacy Center
         </a>
       </div>
     </div>
   </section>
+  </main>
 
   <!-- Footer Section -->
-  <footer class="main-footer">
-    <div class="footer-container">
-      <div class="footer-left">
-        <img src="./assets/icon16.svg?v=2" alt="ForceLens Icon">
-        <span class="copyright">Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
       </div>
-      <div class="footer-right">
-        <a href="./support.html">Support Portal</a>
-        <a href="./privacy.html">Privacy Policy &amp; Trust Center</a>
-        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi?utm_source=item-share-cb" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
       </div>
-    </div>
-    <div class="footer-credit-row">
-      Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span>
     </div>
   </footer>
 
@@ -909,6 +1018,6 @@
     <div class="lightbox-hint">Click anywhere or press Esc to close</div>
   </div>
 
-  <script src="./js/app.js?v=101"></script>
+  <script src="./js/app.js?v=102" defer></script>
 </body>
 </html>

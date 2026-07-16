@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Terms of Use — ForceLens</title>
+  <meta name="description" content="Plain-language terms of use for the free ForceLens Chrome extension and website: license, acceptable use, AI provider keys, disclaimers, and contact.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/terms">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://forcelens.vercel.app/terms">
+  <meta property="og:title" content="Terms of Use — ForceLens">
+  <meta property="og:description" content="Plain-language terms of use for the free ForceLens Chrome extension and website.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Terms of Use — ForceLens">
+  <meta property="twitter:description" content="Plain-language terms of use for the free ForceLens Chrome extension and website.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "url": "https://forcelens.vercel.app/terms",
+        "name": "Terms of Use — ForceLens",
+        "isPartOf": { "@id": "https://forcelens.vercel.app/#website" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Terms of Use", "item": "https://forcelens.vercel.app/terms" }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › Terms of Use</nav>
+    <h1>Terms of Use</h1>
+    <p class="guide-meta">Effective July 2026 · Applies to the ForceLens Chrome extension and this website</p>
+
+    <p class="guide-lede">These terms are written in plain language on purpose. By installing the ForceLens extension or using this site, you agree to them.</p>
+
+    <h2>1. What ForceLens is</h2>
+    <p>ForceLens is a free browser extension that analyzes Salesforce debug logs and Flow metadata locally in your browser. It is an independent product created by Prit Sakhvala and is <strong>not affiliated with, endorsed by, or sponsored by Salesforce, Inc.</strong> "Salesforce", "Apex", "Lightning", and related marks are trademarks of Salesforce, Inc.</p>
+
+    <h2>2. License to use</h2>
+    <p>You get a free, non-exclusive, non-transferable license to install and use the extension for your work with Salesforce orgs you are authorized to access. Don't reverse-engineer it to build a competing product from its code, redistribute modified versions under the ForceLens name, or use it to violate Salesforce's own terms of service.</p>
+
+    <h2>3. Your responsibilities</h2>
+    <ul>
+      <li><strong>Org access.</strong> Only use ForceLens with orgs and data you're permitted to access. Trace flags and logs it creates on your behalf are actions performed under your Salesforce user and your org's policies.</li>
+      <li><strong>AI keys and costs.</strong> If you enable AI features, you supply your own API key. Requests go directly from your browser to your chosen provider; their terms and their bills are between you and them. Review what a log snippet contains before sending it to any AI provider.</li>
+      <li><strong>Judgment.</strong> Analysis output (including AI-generated explanations) can be wrong. Verify before acting on it in production.</li>
+    </ul>
+
+    <h2>4. Privacy</h2>
+    <p>Logs and API keys stay in your browser's local storage; ForceLens operates no server that receives them. The full picture — including the exact extension permissions and why each is needed — is in the <a href="/privacy">Privacy Policy &amp; Trust Center</a>.</p>
+
+    <h2>5. No warranty</h2>
+    <p>ForceLens is provided <strong>"as is", without warranty of any kind</strong> — express or implied, including merchantability, fitness for a particular purpose, and non-infringement. It's a free tool; we work hard to make it excellent, but we can't guarantee it is error-free or always available.</p>
+
+    <h2>6. Limitation of liability</h2>
+    <p>To the maximum extent permitted by law, ForceLens and its creator are not liable for any indirect, incidental, special, or consequential damages — including lost data, lost profits, or issues in your Salesforce org — arising from use of the extension or this site.</p>
+
+    <h2>7. Support</h2>
+    <p>Support is provided on a best-effort basis through the <a href="/support">Support Portal</a> and <a href="mailto:forcelens.support@gmail.com">forcelens.support@gmail.com</a>. There is no SLA for a free product, but bugs are triaged publicly on the collaboration board.</p>
+
+    <h2>8. Changes</h2>
+    <p>The extension and these terms may change as the product evolves. Material changes to these terms will be reflected on this page with an updated effective date. Continued use after changes means acceptance.</p>
+
+    <h2>9. Contact</h2>
+    <p>Questions about these terms: <a href="mailto:forcelens.support@gmail.com">forcelens.support@gmail.com</a>.</p>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>

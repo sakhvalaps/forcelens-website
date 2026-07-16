@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>About ForceLens — Who Builds It and Why | ForceLens</title>
+  <meta name="description" content="ForceLens is a free, local-first Salesforce debug log analyzer built by Salesforce developer Prit Sakhvala. Learn why it exists, how it's built, and how to get in touch.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/about">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://forcelens.vercel.app/about">
+  <meta property="og:title" content="About ForceLens — Who Builds It and Why">
+  <meta property="og:description" content="ForceLens is a free, local-first Salesforce debug log analyzer built by Salesforce developer Prit Sakhvala.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="About ForceLens — Who Builds It and Why">
+  <meta property="twitter:description" content="ForceLens is a free, local-first Salesforce debug log analyzer built by Salesforce developer Prit Sakhvala.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_home.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "AboutPage",
+        "url": "https://forcelens.vercel.app/about",
+        "name": "About ForceLens",
+        "isPartOf": { "@id": "https://forcelens.vercel.app/#website" },
+        "about": { "@id": "https://forcelens.vercel.app/#organization" }
+      },
+      {
+        "@type": "Person",
+        "name": "Prit Sakhvala",
+        "jobTitle": "Salesforce Developer",
+        "email": "forcelens.support@gmail.com",
+        "worksFor": { "@id": "https://forcelens.vercel.app/#organization" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "About", "item": "https://forcelens.vercel.app/about" }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › About</nav>
+    <h1>About ForceLens</h1>
+
+    <p class="guide-lede">ForceLens is a free Chrome extension that turns raw Salesforce debug logs into something you can actually read: the true order of execution, SOQL and DML breakdowns, CPU and governor limit analysis, and expert-lens Flow reviews — all processed locally in your browser.</p>
+
+    <h2>Why it exists</h2>
+    <p>Every Salesforce developer knows the ritual: create a trace flag, reproduce the bug, hunt through Setup for the right log, download it, and scroll through tens of thousands of lines looking for the one that matters. The information you need — <em>what ran, in what order, and what it cost</em> — is in the log, but Salesforce presents it as flat text.</p>
+    <p>ForceLens was built to end that ritual. One click captures the log; the analysis opens where you already are; and the views answer the real questions: which trigger fired first, which query ran 200 times, where the CPU went, how close you came to a governor limit.</p>
+
+    <h2>Who builds it</h2>
+    <p>ForceLens is designed and built by <strong>Prit Sakhvala</strong>, a Salesforce developer who got tired of reading logs the archaeological way. It's an independent product — not affiliated with or endorsed by Salesforce, Inc. "Salesforce", "Apex", and related marks belong to Salesforce, Inc.</p>
+
+    <h2>The principles behind it</h2>
+    <ul>
+      <li><strong>Local-first.</strong> Logs are parsed in your browser and stored only in local browser storage. There is no ForceLens server that receives your data. Full details in the <a href="/privacy">Trust Center</a>.</li>
+      <li><strong>Bring your own key.</strong> AI explanations are optional and use your own API key (Claude, GPT, Groq, or OpenRouter); requests go directly from your browser to your provider. No middleman, no markup.</li>
+      <li><strong>Free, genuinely.</strong> No account, no subscription, no trial clock. The only thing you can ever pay for is your own AI provider's usage — and only if you enable AI features.</li>
+      <li><strong>Meet users where they are.</strong> Buttons appear on the Debug Logs list, log detail pages, the Developer Console, and Flow Builder — not in yet another tab you have to babysit.</li>
+    </ul>
+
+    <h2>Get in touch</h2>
+    <ul>
+      <li>Bugs and feature ideas: the public <a href="/support">Support Portal &amp; Collaboration Board</a></li>
+      <li>Direct contact and security disclosures: <a href="mailto:forcelens.support@gmail.com">forcelens.support@gmail.com</a></li>
+      <li>Install: <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">ForceLens on the Chrome Web Store</a></li>
+    </ul>
+
+    <h2>Learn the craft</h2>
+    <p>The guides section shares what we know about Salesforce debugging, tool-agnostically: <a href="/salesforce-debug-log-analyzer">debug log analysis</a>, <a href="/how-to-read-apex-debug-logs">reading Apex logs</a>, <a href="/salesforce-cpu-time-limit-exceeded">CPU limit errors</a>, <a href="/salesforce-governor-limits-explained">governor limits</a>, <a href="/soql-query-optimization">SOQL optimization</a>, and <a href="/salesforce-flow-debugging">Flow debugging</a>.</p>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>
