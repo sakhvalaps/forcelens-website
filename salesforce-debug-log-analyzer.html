@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Salesforce Debug Log Analyzer — Read Apex &amp; Flow Logs Visually | ForceLens</title>
+  <meta name="description" content="What a Salesforce debug log analyzer does, how to read Apex debug logs manually, and how ForceLens turns raw logs into order of execution, SOQL, CPU time and governor limit insights — free and local-first.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/salesforce-debug-log-analyzer">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/salesforce-debug-log-analyzer">
+  <meta property="og:title" content="Salesforce Debug Log Analyzer — Read Apex &amp; Flow Logs Visually">
+  <meta property="og:description" content="How debug log analyzers work, how to read raw Apex logs, and how ForceLens reconstructs the true order of execution — free, local-first.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_overview.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Salesforce Debug Log Analyzer — Read Apex &amp; Flow Logs Visually">
+  <meta property="twitter:description" content="How debug log analyzers work, how to read raw Apex logs, and how ForceLens reconstructs the true order of execution — free, local-first.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_overview.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "@id": "https://forcelens.vercel.app/salesforce-debug-log-analyzer#article",
+        "headline": "Salesforce Debug Log Analyzer — Read Apex & Flow Logs Visually",
+        "description": "What a Salesforce debug log analyzer does, how to read Apex debug logs manually, and how ForceLens turns raw logs into actionable insights.",
+        "url": "https://forcelens.vercel.app/salesforce-debug-log-analyzer",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_overview.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18",
+        "about": { "@id": "https://forcelens.vercel.app/#software" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is a Salesforce debug log analyzer?",
+            "acceptedAnswer": { "@type": "Answer", "text": "A Salesforce debug log analyzer is a tool that parses raw Apex debug logs and presents them visually — as an execution tree, timeline, order of execution, SOQL/DML breakdown, and governor limit report — so developers can find errors and performance problems far faster than by reading the log line by line." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is ForceLens free to use?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. ForceLens is a free Chrome extension. Log capture, parsing, order-of-execution reconstruction, and Flow analysis are all free and run locally. Optional AI explanations use your own API key, so you only ever pay your own AI provider." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need to download my logs to analyze them?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Not with ForceLens. It adds an 'Inspect Log' link directly on the Debug Logs list, the log detail page, and inside the Developer Console, and its Smart Capture button sets the trace flag and opens the captured log automatically." }
+          },
+          {
+            "@type": "Question",
+            "name": "Does a log analyzer send my Salesforce data to a server?",
+            "acceptedAnswer": { "@type": "Answer", "text": "ForceLens does not. Logs are parsed in your browser and stored only in local browser storage. The only outbound requests are AI explanation calls you explicitly trigger, sent directly to the provider whose API key you configured." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can it analyze Flow debug logs too?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Flow elements appear in debug logs as FLOW_* events, and ForceLens surfaces them in the execution tree and order of execution. It can also analyze a Flow's structure directly from Flow Builder through Developer, Business Analyst, QA and Security lenses." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › Salesforce Debug Log Analyzer</nav>
+    <h1>Salesforce Debug Log Analyzer: Read Apex &amp; Flow Logs Visually</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>A <strong>Salesforce debug log analyzer</strong> parses raw Apex debug logs and turns them into visual, navigable views — execution trees, timelines, SOQL and DML breakdowns, and governor limit reports — so you can find the root cause of an error or slowdown in seconds instead of scrolling through thousands of log lines.</p>
+    </div>
+
+    <p class="guide-lede">This guide explains what's actually inside a Salesforce debug log, how to read one by hand, why raw logs are so painful at scale, and what a modern analyzer like <a href="/">ForceLens</a> does differently. It's written for Salesforce developers, admins, and architects who debug Apex, Flows, and performance issues.</p>
+
+    <h2>What a Salesforce debug log actually contains</h2>
+    <p>Every debug log is a chronological event stream of a single transaction. Each line has a timestamp, an event type, and event-specific details. The events you'll rely on most:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Event</th><th>What it tells you</th></tr></thead>
+      <tbody>
+        <tr><td><code>EXECUTION_STARTED / FINISHED</code></td><td>The boundaries of the transaction.</td></tr>
+        <tr><td><code>CODE_UNIT_STARTED / FINISHED</code></td><td>Entry into a trigger, class method, Flow, or workflow — the skeleton of the execution tree.</td></tr>
+        <tr><td><code>SOQL_EXECUTE_BEGIN / END</code></td><td>Each query, its SOQL text, and rows returned.</td></tr>
+        <tr><td><code>DML_BEGIN / END</code></td><td>Each insert/update/delete and how many rows it touched.</td></tr>
+        <tr><td><code>FLOW_START_INTERVIEW / FLOW_ELEMENT_*</code></td><td>Which Flow ran and which elements executed.</td></tr>
+        <tr><td><code>USER_DEBUG</code></td><td>Your own <code>System.debug()</code> output.</td></tr>
+        <tr><td><code>EXCEPTION_THROWN / FATAL_ERROR</code></td><td>Where things blew up, with the stack trace.</td></tr>
+        <tr><td><code>LIMIT_USAGE_FOR_NS</code></td><td>Governor limit consumption — SOQL queries, DML, CPU time, heap.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>For the full event catalog, see Salesforce's own <a href="https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_debugging_debug_log.htm" target="_blank" rel="noopener noreferrer">debug log documentation</a>. For a hands-on walkthrough of enabling and reading logs, see our tutorial: <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs step by step</a>.</p>
+
+    <h2>Why raw logs are hard to read</h2>
+    <ul>
+      <li><strong>Volume.</strong> A single record save in a mature org can produce tens of thousands of lines: triggers, record-triggered flows, validation, roll-ups, and recursive re-entry all interleave.</li>
+      <li><strong>Truncation.</strong> Logs are capped at 20 MB; above that Salesforce silently drops lines, so the one line you need may be missing unless log levels are tuned.</li>
+      <li><strong>No structure.</strong> The log is flat text. Nesting (which trigger called which class which ran which query) exists only implicitly, in matching <code>*_STARTED/*_FINISHED</code> pairs you have to track mentally.</li>
+      <li><strong>No aggregation.</strong> "How many queries did this transaction run, and which one returned 50,000 rows?" requires you to count by hand.</li>
+    </ul>
+
+    <h2>What a debug log analyzer does</h2>
+    <p>An analyzer parses the event stream and rebuilds the structure a human actually needs:</p>
+    <ul>
+      <li><strong>Execution tree</strong> — the nested call hierarchy of code units, so you see <em>what called what</em>.</li>
+      <li><strong>Order of execution</strong> — before/after triggers, validation rules, flows, and workflow in the sequence Salesforce actually ran them. This is ForceLens's signature view; the same diagram architects draw on whiteboards, generated from your real log.</li>
+      <li><strong>SOQL &amp; DML analysis</strong> — every query and DML statement, aggregated, with row counts — the fastest way to spot <a href="/soql-query-optimization">queries in loops and non-selective SOQL</a>.</li>
+      <li><strong>Performance &amp; CPU breakdown</strong> — where the milliseconds went, essential when you're fighting an <a href="/salesforce-cpu-time-limit-exceeded">Apex CPU time limit exceeded error</a>.</li>
+      <li><strong>Limits report</strong> — governor limit consumption at a glance (see <a href="/salesforce-governor-limits-explained">governor limits explained</a>).</li>
+      <li><strong>Error surfacing</strong> — exceptions and fatal errors pulled to the top with their context, instead of buried at line 48,112.</li>
+    </ul>
+
+    <h2>How ForceLens works</h2>
+    <p>ForceLens is a free Chrome extension that runs entirely in your browser. The workflow:</p>
+    <ol>
+      <li><strong>Capture in one click.</strong> Smart Capture creates the trace flag for you, watches for new logs, and opens them analyzed — no Setup ritual. Or click "Inspect Log" beside any existing log in Setup or the Developer Console.</li>
+      <li><strong>Parse locally.</strong> 100k+ line logs parse in under 100 ms, in your browser. Nothing is uploaded anywhere.</li>
+      <li><strong>Analyze through 12 lenses.</strong> Overview, Log Explorer, Execution Tree, Order of Execution, Apex Debug, AI Pulse, Errors, Timeline, DML, SOQL, Performance, and Limits.</li>
+      <li><strong>Explain with your own AI key (optional).</strong> Bring a Claude, GPT, Groq, or OpenRouter key; calls go directly from your browser to that provider.</li>
+    </ol>
+    <img src="/assets/forcelens_tab_order_of_execution.webp" alt="ForceLens order of execution view reconstructed from a Salesforce debug log" class="guide-img" width="1919" height="873" loading="lazy" decoding="async">
+
+    <h2>ForceLens vs. built-in Salesforce tools</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th></th><th>Developer Console</th><th>Apex Replay Debugger (VS Code)</th><th>ForceLens</th></tr></thead>
+      <tbody>
+        <tr><td>Where it runs</td><td>Browser (separate window)</td><td>VS Code + SF CLI setup</td><td>In your existing Salesforce tab</td></tr>
+        <tr><td>Log capture</td><td>Manual trace flags</td><td>Manual trace flags</td><td>One-click Smart Capture</td></tr>
+        <tr><td>Order of execution view</td><td>No</td><td>No</td><td>Yes, reconstructed per transaction</td></tr>
+        <tr><td>SOQL/DML/limits aggregation</td><td>Partial (raw panels)</td><td>No</td><td>Yes, dedicated tabs</td></tr>
+        <tr><td>Flow analysis</td><td>No</td><td>No</td><td>Yes — log events + Flow Builder lenses</td></tr>
+        <tr><td>AI explanations</td><td>No</td><td>No</td><td>Optional, with your own key</td></tr>
+        <tr><td>Step-through debugging</td><td>No</td><td>Yes (replay)</td><td>No — analysis, not a debugger</td></tr>
+        <tr><td>Cost</td><td>Free</td><td>Free</td><td>Free</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Each tool has a place — the Replay Debugger is genuinely the right choice when you need to step through variable state line by line. For a fuller, honest comparison of the ecosystem, see <a href="/developer-console-alternative">Salesforce Developer Console alternatives</a>.</p>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details>
+        <summary>What is a Salesforce debug log analyzer?</summary>
+        <p>A tool that parses raw Apex debug logs and presents them visually — execution tree, timeline, order of execution, SOQL/DML breakdown, and governor limit report — so developers can find errors and performance problems far faster than reading the log line by line.</p>
+      </details>
+      <details>
+        <summary>Is ForceLens free to use?</summary>
+        <p>Yes. Log capture, parsing, order-of-execution reconstruction, and Flow analysis are all free and run locally. Optional AI explanations use your own API key, so you only ever pay your own AI provider.</p>
+      </details>
+      <details>
+        <summary>Do I need to download my logs to analyze them?</summary>
+        <p>Not with ForceLens. It adds an "Inspect Log" link directly on the Debug Logs list, the log detail page, and inside the Developer Console — and Smart Capture sets the trace flag and opens the captured log automatically.</p>
+      </details>
+      <details>
+        <summary>Does a log analyzer send my Salesforce data to a server?</summary>
+        <p>ForceLens does not. Logs are parsed in your browser and stored only in local browser storage. The only outbound requests are AI calls you explicitly trigger, sent directly to the provider whose API key you configured. Details in the <a href="/privacy">Trust Center</a>.</p>
+      </details>
+      <details>
+        <summary>Can it analyze Flow debug logs too?</summary>
+        <p>Yes. Flow elements appear in debug logs as <code>FLOW_*</code> events, and ForceLens surfaces them in the execution tree and order of execution. It can also analyze a Flow's structure directly from Flow Builder — see <a href="/salesforce-flow-debugging">Salesforce Flow debugging</a>.</p>
+      </details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>Try it on your next log</h2>
+      <p>Install ForceLens free, open any debug log in your org, and see the execution instead of reading it. No account, no server, no cost.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Keep learning</h2>
+      <ul>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Salesforce Apex debug logs, step by step</a></li>
+        <li><a href="/salesforce-debug-log-levels">Debug log levels and trace flags explained</a></li>
+        <li><a href="/salesforce-order-of-execution">The Salesforce order of execution, step by step</a></li>
+        <li><a href="/salesforce-cpu-time-limit-exceeded">Fixing "Apex CPU time limit exceeded"</a></li>
+        <li><a href="/apex-heap-size-limit">Fixing "Apex heap size too large"</a></li>
+        <li><a href="/salesforce-governor-limits-explained">Salesforce governor limits explained (cheat sheet)</a></li>
+        <li><a href="/soql-query-optimization">Finding and fixing slow SOQL queries</a></li>
+        <li><a href="/salesforce-flow-debugging">How to debug Salesforce Flows</a></li>
+        <li><a href="/salesforce-flow-error-emails">Reading and fixing Flow error emails</a></li>
+        <li><a href="/developer-console-alternative">Developer Console alternatives compared</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>

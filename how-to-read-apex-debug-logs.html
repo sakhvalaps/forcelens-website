@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>How to Read Salesforce Apex Debug Logs (Step by Step) | ForceLens</title>
+  <meta name="description" content="A practical tutorial on reading Salesforce Apex debug logs: enabling trace flags, choosing log levels, understanding log line anatomy, and the key events — CODE_UNIT, SOQL_EXECUTE, LIMIT_USAGE and more.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/how-to-read-apex-debug-logs">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/how-to-read-apex-debug-logs">
+  <meta property="og:title" content="How to Read Salesforce Apex Debug Logs (Step by Step)">
+  <meta property="og:description" content="Enable trace flags, choose log levels, and understand every part of an Apex debug log — with real log line examples.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="How to Read Salesforce Apex Debug Logs (Step by Step)">
+  <meta property="twitter:description" content="Enable trace flags, choose log levels, and understand every part of an Apex debug log — with real log line examples.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "How to Read Salesforce Apex Debug Logs (Step by Step)",
+        "description": "A practical tutorial on reading Salesforce Apex debug logs: trace flags, log levels, log line anatomy, and key events.",
+        "url": "https://forcelens.vercel.app/how-to-read-apex-debug-logs",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "HowTo",
+        "name": "How to capture and read a Salesforce Apex debug log",
+        "step": [
+          { "@type": "HowToStep", "name": "Enable a trace flag", "text": "In Setup, go to Debug Logs and add a trace flag for your user with a debug level and an expiry time. Or use a tool like ForceLens Smart Capture to create it in one click." },
+          { "@type": "HowToStep", "name": "Run the action you want to trace", "text": "Perform the operation in Salesforce — save the record, run the batch, invoke the API — while the trace flag is active." },
+          { "@type": "HowToStep", "name": "Open the generated log", "text": "Return to Setup → Debug Logs and open the newest log for your user, or let ForceLens open it automatically." },
+          { "@type": "HowToStep", "name": "Find the transaction boundaries", "text": "Locate EXECUTION_STARTED and EXECUTION_FINISHED, then use CODE_UNIT_STARTED events to map which triggers, classes and flows ran." },
+          { "@type": "HowToStep", "name": "Drill into errors and limits", "text": "Search for EXCEPTION_THROWN, FATAL_ERROR and LIMIT_USAGE_FOR_NS to find failures and governor limit consumption." }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "How to Read Apex Debug Logs", "item": "https://forcelens.vercel.app/how-to-read-apex-debug-logs" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "How do I enable debug logs in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "In Setup, search for Debug Logs, click New under User Trace Flags, pick the user, a start/expiry time, and a debug level (SFDC_DevConsole is a common default). Logs then generate for every transaction that user runs until the flag expires." } },
+          { "@type": "Question", "name": "Why is my debug log truncated?", "acceptedAnswer": { "@type": "Answer", "text": "Debug logs are capped at 20 MB per transaction. When a log exceeds the cap, Salesforce skips lines (you'll see '*** Skipped' markers). Reduce log levels for noisy categories like System and Validation, or scope tracing to a specific class." } },
+          { "@type": "Question", "name": "What log level should I use for Apex debugging?", "acceptedAnswer": { "@type": "Answer", "text": "A good starting point is ApexCode=FINEST, ApexProfiling=INFO, Database=INFO, System=DEBUG, with everything else at INFO or lower. Raise Database to FINEST when investigating SOQL, and lower ApexCode if the log truncates." } },
+          { "@type": "Question", "name": "Where are debug logs stored and for how long?", "acceptedAnswer": { "@type": "Answer", "text": "Logs live in Setup → Debug Logs. System-generated debug logs are retained for 24 hours, and the org keeps at most 1,000 MB of logs — older ones get deleted as new logs arrive, so save anything important promptly." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › How to Read Apex Debug Logs</nav>
+    <h1>How to Read Salesforce Apex Debug Logs (Step by Step)</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>To read a Salesforce Apex debug log: enable a trace flag in Setup → Debug Logs, run the action you want to trace, open the newest log, find the <code>EXECUTION_STARTED</code> boundary, then follow <code>CODE_UNIT_STARTED</code> events to see which triggers, classes and flows ran — and search for <code>EXCEPTION_THROWN</code> or <code>LIMIT_USAGE_FOR_NS</code> to find failures.</p>
+    </div>
+
+    <h2>Step 1 — Enable a trace flag</h2>
+    <p>Salesforce only writes debug logs while an active <strong>trace flag</strong> exists for the user being traced. In Setup, search <em>Debug Logs</em> → <em>New</em> under User Trace Flags, pick the user, a time window, and a debug level. Two gotchas:</p>
+    <ul>
+      <li>Trace flags expire — a "why is no log generating?" mystery is almost always an expired flag.</li>
+      <li>The debug level decides what the log contains. Too low and your clue isn't logged; too high and the log truncates.</li>
+    </ul>
+    <p>ForceLens's <strong>Smart Capture</strong> collapses this whole step: one click creates the trace flag, watches for new logs, and opens them analyzed. <a href="/#sandbox">See how Smart Capture works</a>.</p>
+
+    <h2>Step 2 — Choose log levels deliberately</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Category</th><th>Everyday debugging</th><th>SOQL investigation</th><th>When log truncates</th></tr></thead>
+      <tbody>
+        <tr><td>ApexCode</td><td>FINEST</td><td>FINE</td><td>DEBUG</td></tr>
+        <tr><td>ApexProfiling</td><td>INFO</td><td>INFO</td><td>NONE</td></tr>
+        <tr><td>Database</td><td>INFO</td><td>FINEST</td><td>INFO</td></tr>
+        <tr><td>System</td><td>DEBUG</td><td>INFO</td><td>INFO</td></tr>
+        <tr><td>Workflow</td><td>INFO</td><td>INFO</td><td>ERROR</td></tr>
+        <tr><td>Validation</td><td>INFO</td><td>INFO</td><td>ERROR</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Higher levels log more. <code>FINEST</code> on ApexCode includes every statement and variable assignment; on a big transaction that alone can blow the 20 MB cap.</p>
+
+    <h2>Step 3 — Understand the anatomy of a log line</h2>
+    <code class="guide-code">14:23:07.0 (5348351)|SOQL_EXECUTE_BEGIN|[12]|Aggregations:0|SELECT Id, Name FROM Account WHERE Id IN :accountIds</code>
+    <ul>
+      <li><strong><code>14:23:07.0</code></strong> — wall-clock timestamp.</li>
+      <li><strong><code>(5348351)</code></strong> — elapsed time in nanoseconds since transaction start. Subtract two of these to measure a block's duration.</li>
+      <li><strong><code>SOQL_EXECUTE_BEGIN</code></strong> — the event type.</li>
+      <li><strong><code>[12]</code></strong> — the Apex line number that emitted it.</li>
+      <li>The rest is event-specific detail — here, the query text.</li>
+    </ul>
+
+    <h2>Step 4 — Follow the key events</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Event</th><th>Use it to…</th></tr></thead>
+      <tbody>
+        <tr><td><code>EXECUTION_STARTED / FINISHED</code></td><td>Bound the transaction. Multiple pairs in one file mean multiple transactions logged together.</td></tr>
+        <tr><td><code>CODE_UNIT_STARTED / FINISHED</code></td><td>Map the call skeleton: each trigger, class entry point, Flow, or workflow evaluation.</td></tr>
+        <tr><td><code>SOQL_EXECUTE_BEGIN / END</code></td><td>See each query and its row count. Repeated identical queries = <a href="/soql-query-optimization">query in a loop</a>.</td></tr>
+        <tr><td><code>DML_BEGIN / END</code></td><td>See inserts/updates and rows affected — the entry points for trigger recursion.</td></tr>
+        <tr><td><code>USER_DEBUG</code></td><td>Find your own System.debug() output fast (search for the literal string).</td></tr>
+        <tr><td><code>EXCEPTION_THROWN / FATAL_ERROR</code></td><td>Get the exception type, message, and stack trace. FATAL_ERROR is what actually rolled back the transaction.</td></tr>
+        <tr><td><code>LIMIT_USAGE_FOR_NS</code></td><td>Read final governor limit consumption per namespace — <a href="/salesforce-governor-limits-explained">what the numbers mean</a>.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Step 5 — Common gotchas</h2>
+    <ul>
+      <li><strong>"MAXIMUM DEBUG LOG SIZE REACHED".</strong> The log hit 20 MB and lines were skipped. Lower noisy categories or scope tracing to one class.</li>
+      <li><strong>The error isn't in this log.</strong> Async work (future methods, queueables, batch chunks) runs in separate transactions with separate logs.</li>
+      <li><strong>Managed package code is hidden.</strong> Other namespaces log at their own levels and much of their internals won't appear.</li>
+      <li><strong>Recursion reads as duplication.</strong> If a trigger updates its own object, you'll see the same trigger's CODE_UNIT twice. That's re-entry, not a duplicate log.</li>
+    </ul>
+
+    <h2>Doing all of this in one click</h2>
+    <p>Everything above is what a <a href="/salesforce-debug-log-analyzer">debug log analyzer</a> automates. ForceLens parses the log in your browser and gives you the execution tree, order of execution, SOQL/DML aggregation, error surfacing and limits report as clickable tabs — free, with nothing uploaded anywhere.</p>
+    <img src="/assets/forcelens_tab_log_explorer.webp" alt="ForceLens Log Explorer view of a parsed Salesforce Apex debug log" class="guide-img" width="1919" height="869" loading="lazy" decoding="async">
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>How do I enable debug logs in Salesforce?</summary><p>In Setup, search for Debug Logs, click New under User Trace Flags, pick the user, a start/expiry time, and a debug level (SFDC_DevConsole is a common default). Logs then generate for every transaction that user runs until the flag expires.</p></details>
+      <details><summary>Why is my debug log truncated?</summary><p>Debug logs are capped at 20 MB per transaction. When a log exceeds the cap, Salesforce skips lines (you'll see "*** Skipped" markers). Reduce log levels for noisy categories like System and Validation, or scope tracing to a specific class.</p></details>
+      <details><summary>What log level should I use for Apex debugging?</summary><p>Start with ApexCode=FINEST, ApexProfiling=INFO, Database=INFO, System=DEBUG. Raise Database to FINEST for SOQL investigations; lower ApexCode if the log truncates.</p></details>
+      <details><summary>Where are debug logs stored and for how long?</summary><p>Setup → Debug Logs. System-generated logs are retained for 24 hours and the org caps total log storage at 1,000 MB — older logs are deleted as new ones arrive, so save anything important promptly (ForceLens keeps your last 200 analyzed sessions locally).</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>Skip the manual steps</h2>
+      <p>ForceLens sets the trace flag, captures the log, and opens it analyzed — in one click, free, entirely in your browser.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-debug-log-analyzer">Salesforce debug log analyzer — the complete guide</a></li>
+        <li><a href="/salesforce-cpu-time-limit-exceeded">Fixing "Apex CPU time limit exceeded"</a></li>
+        <li><a href="/salesforce-governor-limits-explained">Governor limits explained</a></li>
+        <li><a href="/salesforce-flow-debugging">Debugging Salesforce Flows</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>
