@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Fix "Apex Heap Size Too Large" in Salesforce | ForceLens</title>
+  <meta name="description" content="What the Salesforce Apex heap size limit is (6 MB sync / 12 MB async), what fills the heap, how to find heap hotspots in debug logs with HEAP_ALLOCATE and Limits.getHeapSize(), and fixes that work.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/apex-heap-size-limit">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/apex-heap-size-limit">
+  <meta property="og:title" content="Fix &quot;Apex Heap Size Too Large&quot; in Salesforce">
+  <meta property="og:description" content="The 6 MB/12 MB heap limit explained: what fills the heap, finding hotspots in debug logs, and the fixes that work.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_limits.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Fix &quot;Apex Heap Size Too Large&quot; in Salesforce">
+  <meta property="twitter:description" content="The 6 MB/12 MB heap limit explained: what fills the heap, finding hotspots in debug logs, and the fixes that work.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_limits.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Fix \"Apex Heap Size Too Large\" in Salesforce",
+        "description": "The Apex heap size limit explained, with debug-log techniques for finding heap hotspots and proven fixes.",
+        "url": "https://forcelens.vercel.app/apex-heap-size-limit",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_limits.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "Apex Heap Size Limit", "item": "https://forcelens.vercel.app/apex-heap-size-limit" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "What is the Apex heap size limit in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "6 MB for synchronous transactions and 12 MB for asynchronous ones (batch, future, queueable). The heap is the memory holding your variables, collections, sObjects and strings during a transaction. Exceeding it throws the uncatchable 'Apex heap size too large' limit exception." } },
+          { "@type": "Question", "name": "What fills up the Apex heap?", "acceptedAnswer": { "@type": "Answer", "text": "Large query results held in lists, big strings built by concatenation, JSON serialization/deserialization of large payloads, Blob/attachment bodies, and collections that keep growing across loop iterations. Debug log generation itself doesn't count, but everything your variables reference does." } },
+          { "@type": "Question", "name": "How do I check heap usage in Apex?", "acceptedAnswer": { "@type": "Answer", "text": "Call Limits.getHeapSize() and Limits.getLimitHeapSize() at checkpoints and log them with System.debug. In debug logs, the LIMIT_USAGE_FOR_NS section reports 'Maximum heap size', and with ApexCode at FINEST the HEAP_ALLOCATE events show individual allocations." } },
+          { "@type": "Question", "name": "How do I fix heap size errors with large query results?", "acceptedAnswer": { "@type": "Answer", "text": "Use a SOQL for-loop (for (Account a : [SELECT ...]) { }) so records are processed in 200-record chunks instead of materializing the whole list, query only the fields you need, or move the work to Batch Apex where each execute() gets a fresh transaction and the async 12 MB budget." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › Apex Heap Size Limit</nav>
+    <h1>Fix "Apex Heap Size Too Large" in Salesforce</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>"Apex heap size too large" means your transaction held more than <strong>6&nbsp;MB</strong> of data in memory (<strong>12&nbsp;MB</strong> async). The heap is everything your variables reference — query results, collections, strings, JSON, Blobs. The fix is holding less at once: SOQL for-loops, leaner field lists, chunked processing, or Batch Apex.</p>
+    </div>
+
+    <h2>What the heap actually is</h2>
+    <p>Every object your Apex code creates or references during a transaction lives on the heap: sObject lists from queries, maps you build, strings you concatenate, deserialized JSON structures, Blob contents. When the total exceeds the limit, Salesforce throws <code>System.LimitException: Apex heap size too large</code> — which, like all limit exceptions, <strong>cannot be caught</strong>.</p>
+    <p>Heap is shared across all namespaces in the transaction (like <a href="/salesforce-cpu-time-limit-exceeded">CPU time</a>), so managed package allocations count against you too. See the full picture in <a href="/salesforce-governor-limits-explained">governor limits explained</a>.</p>
+
+    <h2>The usual suspects</h2>
+    <ol>
+      <li><strong>Materializing big query results.</strong> <code>List&lt;Account&gt; all = [SELECT ... FROM Account]</code> on a large object loads every record and field into memory at once.</li>
+      <li><strong>Querying fields you don't use</strong> — especially long text areas and rich text fields, which can be 100 KB+ per record.</li>
+      <li><strong>String concatenation in loops.</strong> Each <code>s += chunk</code> creates a new string; building CSVs or HTML this way multiplies memory.</li>
+      <li><strong>JSON of large payloads.</strong> <code>JSON.serialize</code>/<code>deserialize</code> of big structures temporarily doubles the data (source + result both on heap).</li>
+      <li><strong>Blobs and attachments.</strong> Reading file bodies into Apex is the fastest way to blow 6 MB.</li>
+      <li><strong>Collections that never shrink</strong> — accumulating results across iterations instead of processing and clearing.</li>
+    </ol>
+
+    <h2>Finding heap hotspots in the debug log</h2>
+    <p>Three techniques, cheapest first:</p>
+    <h3>1. The limits summary</h3>
+    <code class="guide-code">LIMIT_USAGE_FOR_NS|(default)|
+  Maximum heap size: 5892411 out of 6000000 ******* CLOSE TO LIMIT</code>
+    <p>Confirms heap is the problem and how close you are. ForceLens's <strong>Limits</strong> tab shows this as a progress bar the moment the log opens.</p>
+    <h3>2. Checkpoint logging</h3>
+    <code class="guide-code">System.debug('Heap after query: ' + Limits.getHeapSize() + ' / ' + Limits.getLimitHeapSize());
+// ... suspect operation ...
+System.debug('Heap after transform: ' + Limits.getHeapSize());</code>
+    <p>Bracket suspect operations with these and read the <code>USER_DEBUG</code> lines — the jump between checkpoints is your hotspot.</p>
+    <h3>3. HEAP_ALLOCATE events</h3>
+    <p>With ApexCode at <code>FINEST</code>, the log emits <code>HEAP_ALLOCATE</code> events with byte counts and line numbers. Extremely detailed but extremely verbose — combine with a class-scoped trace flag (see <a href="/salesforce-debug-log-levels">debug log levels</a>) to keep the log under the 20 MB cap.</p>
+
+    <h2>Fixes that work</h2>
+    <ul>
+      <li><strong>SOQL for-loops.</strong> <code>for (Account a : [SELECT Id, Name FROM Account WHERE ...]) { ... }</code> processes records in 200-record batches internally instead of holding the full list. The single biggest heap fix.</li>
+      <li><strong>Query only needed fields.</strong> Drop unused columns, especially long text areas.</li>
+      <li><strong>Batch Apex for volume.</strong> Each <code>execute()</code> gets a fresh transaction, a fresh heap, and the 12 MB async budget.</li>
+      <li><strong>Stream, don't accumulate.</strong> Process each chunk and let it go out of scope; call <code>list.clear()</code> on working collections; set large variables to <code>null</code> when done.</li>
+      <li><strong>Careful with JSON.</strong> Deserialize into typed classes containing only fields you need, not <code>Map&lt;String, Object&gt;</code> of the whole payload.</li>
+      <li><strong>Keep file bodies out of Apex.</strong> Where possible, work with ContentVersion IDs and links rather than reading Blob bodies.</li>
+      <li><strong>Visualforce note:</strong> mark controller variables you don't need across postbacks as <code>transient</code> to keep them out of the serialized view state.</li>
+    </ul>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>What is the Apex heap size limit?</summary><p>6 MB per synchronous transaction, 12 MB for asynchronous (batch, future, queueable). Exceeding it throws an uncatchable limit exception.</p></details>
+      <details><summary>What fills up the heap?</summary><p>Query results held in lists, big strings, JSON serialization of large payloads, Blob/file bodies, and ever-growing collections — including allocations made by managed packages in your transaction.</p></details>
+      <details><summary>How do I check heap usage?</summary><p><code>Limits.getHeapSize()</code> checkpoints logged with System.debug; the "Maximum heap size" line in LIMIT_USAGE_FOR_NS; and HEAP_ALLOCATE events at ApexCode FINEST.</p></details>
+      <details><summary>How do I fix heap errors from large queries?</summary><p>Use SOQL for-loops so records process in chunks, query fewer fields, or move to Batch Apex where each chunk gets a fresh 12 MB heap.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>Spot heap pressure instantly</h2>
+      <p>Open the log in ForceLens — the Limits tab shows heap against its budget as a progress bar, next to CPU, SOQL and DML. Free and local.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-governor-limits-explained">Salesforce governor limits explained</a></li>
+        <li><a href="/salesforce-cpu-time-limit-exceeded">Fixing "Apex CPU time limit exceeded"</a></li>
+        <li><a href="/soql-query-optimization">Finding and fixing slow SOQL queries</a></li>
+        <li><a href="/salesforce-debug-log-levels">Debug log levels explained</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>

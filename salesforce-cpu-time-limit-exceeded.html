@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Fix "Apex CPU Time Limit Exceeded" in Salesforce | ForceLens</title>
+  <meta name="description" content="What causes 'Apex CPU time limit exceeded', what counts toward the 10-second CPU limit, how to find the hotspot in your debug log, and the fixes that actually work: bulkification, maps, async, and Flow tuning.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/salesforce-cpu-time-limit-exceeded">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/salesforce-cpu-time-limit-exceeded">
+  <meta property="og:title" content="Fix &quot;Apex CPU Time Limit Exceeded&quot; in Salesforce">
+  <meta property="og:description" content="What counts toward the CPU limit, how to find the hotspot in your debug log, and fixes that actually work.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_performance.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Fix &quot;Apex CPU Time Limit Exceeded&quot; in Salesforce">
+  <meta property="twitter:description" content="What counts toward the CPU limit, how to find the hotspot in your debug log, and fixes that actually work.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_performance.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Fix \"Apex CPU Time Limit Exceeded\" in Salesforce",
+        "description": "Causes of the Salesforce CPU time limit error, how to find the hotspot in a debug log, and proven fixes.",
+        "url": "https://forcelens.vercel.app/salesforce-cpu-time-limit-exceeded",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_performance.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "CPU Time Limit Exceeded", "item": "https://forcelens.vercel.app/salesforce-cpu-time-limit-exceeded" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "What is the Apex CPU time limit in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "10,000 milliseconds (10 seconds) of CPU time per synchronous transaction, and 60,000 milliseconds (60 seconds) for asynchronous transactions such as batch, future and queueable jobs. Exceeding it throws the uncatchable 'Apex CPU time limit exceeded' error and rolls back the transaction." } },
+          { "@type": "Question", "name": "What does NOT count toward Salesforce CPU time?", "acceptedAnswer": { "@type": "Answer", "text": "Database time does not count: SOQL query execution, DML database operations, and HTTP callout wait time are excluded. What counts is actual computation — Apex statements, loops, triggers, Flow element execution, validation and workflow evaluation, and managed package code." } },
+          { "@type": "Question", "name": "How do I find what is consuming CPU time in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Compare elapsed-time values (the nanosecond counters in parentheses) between CODE_UNIT_STARTED and CODE_UNIT_FINISHED pairs to find the slowest units, and check LIMIT_USAGE_FOR_NS for 'Maximum CPU time'. A log analyzer like ForceLens computes this per-unit timing automatically in its Performance and Timeline tabs." } },
+          { "@type": "Question", "name": "Can I catch the CPU time limit exception in Apex?", "acceptedAnswer": { "@type": "Answer", "text": "No. Limit exceptions like System.LimitException: Apex CPU time limit exceeded cannot be caught with try/catch. The only remedy is prevention: reduce computation, bulkify, or move work to asynchronous context." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › CPU Time Limit Exceeded</nav>
+    <h1>Fix "Apex CPU Time Limit Exceeded" in Salesforce</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>"Apex CPU time limit exceeded" means your transaction used more than <strong>10 seconds of CPU</strong> (60 seconds for async). Database time doesn't count — the culprit is computation: loops over large collections, nested trigger/Flow recursion, or inefficient code in triggers and managed packages. Find the hotspot in the debug log, then bulkify, cache with maps, or move work async.</p>
+    </div>
+
+    <h2>What counts toward CPU time — and what doesn't</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Counts toward CPU</th><th>Does NOT count</th></tr></thead>
+      <tbody>
+        <tr><td>Apex statement execution (loops, string/JSON processing, math)</td><td>SOQL query execution time (database)</td></tr>
+        <tr><td>Trigger logic — yours and managed packages'</td><td>DML database time</td></tr>
+        <tr><td>Flow element execution, formulas, validation rules, workflow</td><td>HTTP callout wait time</td></tr>
+        <tr><td>Declarative automation triggered by your DML</td><td>Time spent waiting on locks</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>This is why the error is confusing: the visible slow part of a transaction (a big query) is often free, while an innocent-looking loop is what burns the budget.</p>
+
+    <h2>The usual suspects</h2>
+    <ol>
+      <li><strong>Loops over loops.</strong> Nested iteration over related records (O(n²) comparisons) is the single most common cause. 200 trigger records × 1,000 comparisons each is 200,000 iterations before you've done anything useful.</li>
+      <li><strong>Trigger recursion.</strong> An update trigger that performs updates re-fires automation. Two or three re-entries multiply all trigger CPU.</li>
+      <li><strong>Non-bulkified helper methods</strong> called once per record instead of once per batch.</li>
+      <li><strong>Record-triggered Flows stacking on triggers.</strong> Each Flow element costs CPU; a loop inside a Flow over hundreds of records adds up fast.</li>
+      <li><strong>Heavy string/JSON processing</strong> — serializing large payloads, regex over long text, building huge strings by concatenation.</li>
+      <li><strong>Managed package automation</strong> you can't see — but which absolutely bills to your transaction's CPU.</li>
+    </ol>
+
+    <h2>Finding the hotspot in the debug log</h2>
+    <p>Every log line carries a nanosecond elapsed counter, e.g. <code>(5348351)</code>. The manual method:</p>
+    <code class="guide-code">14:23:07.1 (120000000)|CODE_UNIT_STARTED|[EXTERNAL]|OpportunityTrigger on Opportunity trigger event AfterUpdate
+14:23:09.8 (2830000000)|CODE_UNIT_FINISHED|OpportunityTrigger on Opportunity trigger event AfterUpdate</code>
+    <p>2,830,000,000 − 120,000,000 = <strong>2.71 s wall time in that trigger</strong>. Do this for every <code>CODE_UNIT</code> pair, rank them, then drill into the worst one. Also check the summary at the end of the log:</p>
+    <code class="guide-code">LIMIT_USAGE_FOR_NS|(default)|
+  Maximum CPU time: 9840 out of 10000 ******* CLOSE TO LIMIT</code>
+    <p>Doing this by hand across a 50,000-line log is exactly the tedium a <a href="/salesforce-debug-log-analyzer">debug log analyzer</a> removes. ForceLens's <strong>Performance</strong> tab ranks code units by time consumed, its <strong>Timeline</strong> shows where the transaction's time physically went, and the <strong>Limits</strong> tab shows CPU consumption against the 10 s budget — parsed from the same log, in one click.</p>
+    <img src="/assets/forcelens_tab_performance.webp" alt="ForceLens Performance tab showing CPU time breakdown per code unit from a Salesforce debug log" class="guide-img" width="1919" height="866" loading="lazy" decoding="async">
+
+    <h2>Fixes that actually work</h2>
+    <ul>
+      <li><strong>Bulkify.</strong> Query once before the loop; process collections; never call a per-record helper in a loop. Replace nested loops with <code>Map&lt;Id, SObject&gt;</code> lookups — this alone turns O(n²) into O(n).</li>
+      <li><strong>Stop recursion.</strong> Use a static guard variable or, better, restructure so triggers don't update their own object unnecessarily.</li>
+      <li><strong>Move work async.</strong> Queueables, future methods, and batch Apex get a 60 s CPU budget and run outside the user's save. Anything not needed synchronously — roll-ups, integrations, enrichment — belongs there.</li>
+      <li><strong>Tune Flows.</strong> Consolidate multiple record-triggered Flows per object, avoid loops over large collections inside Flows, and push heavy logic to (bulkified) Apex where appropriate.</li>
+      <li><strong>Audit managed packages.</strong> If a package's automation dominates the log, check its settings for toggles, or scope which record changes invoke it.</li>
+      <li><strong>Cache expensive computation.</strong> Static variables survive for the transaction — compute once, reuse.</li>
+    </ul>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>What is the Apex CPU time limit in Salesforce?</summary><p>10,000 ms (10 seconds) per synchronous transaction; 60,000 ms for asynchronous (batch, future, queueable). Exceeding it throws an uncatchable limit exception and rolls back the transaction. Full list: <a href="/salesforce-governor-limits-explained">governor limits explained</a>.</p></details>
+      <details><summary>What does NOT count toward CPU time?</summary><p>Database time: SOQL execution, DML database operations, and callout wait time are excluded. Computation — Apex statements, trigger and Flow logic, validation, managed package code — is what counts.</p></details>
+      <details><summary>How do I find what's consuming CPU in a debug log?</summary><p>Diff the elapsed-time counters between CODE_UNIT_STARTED/FINISHED pairs and check LIMIT_USAGE_FOR_NS at the end of the log — or let ForceLens's Performance and Timeline tabs compute the ranking automatically.</p></details>
+      <details><summary>Can I catch the CPU limit exception in try/catch?</summary><p>No. <code>System.LimitException</code> is uncatchable. Prevention — bulkification, recursion control, async offloading — is the only fix.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>Find your CPU hotspot in seconds</h2>
+      <p>Open the failing transaction's log in ForceLens and the Performance tab ranks every code unit by time consumed — free, local, no setup.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-governor-limits-explained">Salesforce governor limits explained</a></li>
+        <li><a href="/soql-query-optimization">Finding and fixing slow SOQL queries</a></li>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Apex debug logs</a></li>
+        <li><a href="/salesforce-flow-debugging">Debugging Salesforce Flows</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Salesforce Governor Limits Explained (Cheat Sheet) | ForceLens</title>
+  <meta name="description" content="Every key Salesforce governor limit in one cheat sheet — SOQL queries, DML statements, CPU time, heap size, callouts — sync vs async values, how limits appear in debug logs, and how to monitor them.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/salesforce-governor-limits-explained">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/salesforce-governor-limits-explained">
+  <meta property="og:title" content="Salesforce Governor Limits Explained (Cheat Sheet)">
+  <meta property="og:description" content="SOQL, DML, CPU, heap and callout limits — sync vs async — plus how to read them in debug logs.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_limits.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Salesforce Governor Limits Explained (Cheat Sheet)">
+  <meta property="twitter:description" content="SOQL, DML, CPU, heap and callout limits — sync vs async — plus how to read them in debug logs.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_limits.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Salesforce Governor Limits Explained (Cheat Sheet)",
+        "description": "Key Salesforce governor limits with sync vs async values, how they surface in debug logs, and how to monitor them.",
+        "url": "https://forcelens.vercel.app/salesforce-governor-limits-explained",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_limits.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "Governor Limits Explained", "item": "https://forcelens.vercel.app/salesforce-governor-limits-explained" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "What are governor limits in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "Governor limits are per-transaction resource caps Salesforce enforces because orgs share multitenant infrastructure. They cap SOQL queries (100 sync), DML statements (150), CPU time (10 seconds sync), heap size (6 MB sync), callouts (100) and more. Exceeding one throws an uncatchable limit exception and rolls back the transaction." } },
+          { "@type": "Question", "name": "How do I see governor limit usage in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Look for the LIMIT_USAGE_FOR_NS event near the end of the log. It lists consumption per namespace: number of SOQL queries, query rows, DML statements, CPU time, and heap size against each maximum. Tools like ForceLens render this as a visual limits dashboard." } },
+          { "@type": "Question", "name": "Do managed packages get their own governor limits?", "acceptedAnswer": { "@type": "Answer", "text": "Certified managed packages get their own separate set of most per-namespace limits (like SOQL and DML counts), which is why LIMIT_USAGE_FOR_NS reports per namespace. However, some limits — notably CPU time and heap — are shared across all namespaces in the transaction." } },
+          { "@type": "Question", "name": "How can I check limits from Apex code?", "acceptedAnswer": { "@type": "Answer", "text": "Use the System.Limits class — for example Limits.getQueries() vs Limits.getLimitQueries(), Limits.getCpuTime(), Limits.getHeapSize() — to read current consumption at runtime and defensively branch before hitting a cap." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › Governor Limits</nav>
+    <h1>Salesforce Governor Limits Explained (with a Cheat Sheet)</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p><strong>Governor limits</strong> are per-transaction resource caps Salesforce enforces to protect its shared, multitenant infrastructure. The ones you'll hit most: 100 SOQL queries, 150 DML statements, 10 seconds of CPU time, and 6 MB of heap per synchronous transaction. Exceeding any of them throws an uncatchable exception and rolls the transaction back.</p>
+    </div>
+
+    <h2>The cheat sheet (per transaction)</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Limit</th><th>Synchronous</th><th>Asynchronous</th></tr></thead>
+      <tbody>
+        <tr><td>SOQL queries issued</td><td>100</td><td>200</td></tr>
+        <tr><td>Records retrieved by SOQL</td><td>50,000</td><td>50,000</td></tr>
+        <tr><td>Records retrieved by Database.getQueryLocator</td><td>10,000</td><td>10,000</td></tr>
+        <tr><td>SOSL queries issued</td><td>20</td><td>20</td></tr>
+        <tr><td>DML statements issued</td><td>150</td><td>150</td></tr>
+        <tr><td>Records processed by DML</td><td>10,000</td><td>10,000</td></tr>
+        <tr><td>CPU time</td><td>10,000 ms</td><td>60,000 ms</td></tr>
+        <tr><td>Heap size</td><td>6 MB</td><td>12 MB</td></tr>
+        <tr><td>HTTP callouts</td><td>100</td><td>100</td></tr>
+        <tr><td>Cumulative callout timeout</td><td>120 s</td><td>120 s</td></tr>
+        <tr><td>Future method invocations</td><td>50</td><td>0 in batch/future context</td></tr>
+        <tr><td>Queueable jobs enqueued</td><td>50</td><td>1 (chaining)</td></tr>
+        <tr><td>Maximum transaction execution time</td><td colspan="2">10 minutes</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Values are the standard published limits — always confirm edge cases against the official <a href="https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_apexgov.htm" target="_blank" rel="noopener noreferrer">Salesforce governor limits reference</a>, since Salesforce occasionally revises them.</p>
+
+    <h2>Sync vs async: which budget are you on?</h2>
+    <p>A transaction is <strong>synchronous</strong> when it runs in response to a user action or API call (record save, Lightning component call, REST request). It's <strong>asynchronous</strong> — with the bigger CPU/heap budget — when it runs as batch Apex, a future method, a queueable, or scheduled Apex. This is why "move it async" is a standard fix for <a href="/salesforce-cpu-time-limit-exceeded">CPU time limit errors</a>: the same code gets six times the CPU budget and runs outside the user's save.</p>
+
+    <h2>How limits appear in a debug log</h2>
+    <p>Near the end of every log, the <code>LIMIT_USAGE_FOR_NS</code> event reports consumption per namespace:</p>
+    <code class="guide-code">LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 96 out of 100 ******* CLOSE TO LIMIT
+  Number of query rows: 12043 out of 50000
+  Number of DML statements: 12 out of 150
+  Maximum CPU time: 4210 out of 10000
+  Maximum heap size: 1873921 out of 6000000</code>
+    <p>Key detail: certified managed packages get their own bucket for most counted limits (their own 100 queries, etc.), which is why the report is namespaced — but <strong>CPU time and heap are shared</strong> across every namespace in the transaction. A greedy package spends your CPU.</p>
+    <p>ForceLens's <strong>Limits</strong> tab renders this section as a visual dashboard with per-limit progress bars, so a 96/100 SOQL situation is impossible to miss. Combined with the <a href="/soql-query-optimization">SOQL tab</a>, you can jump from "too many queries" straight to <em>which</em> query fired 96 times.</p>
+    <img src="/assets/forcelens_tab_limits.webp" alt="ForceLens Limits tab visualizing governor limit consumption from a Salesforce debug log" class="guide-img" width="1919" height="871" loading="lazy" decoding="async">
+
+    <h2>Monitoring limits from code</h2>
+    <code class="guide-code">System.debug('SOQL: ' + Limits.getQueries() + ' / ' + Limits.getLimitQueries());
+System.debug('CPU:  ' + Limits.getCpuTime() + ' / ' + Limits.getLimitCpuTime());
+System.debug('Heap: ' + Limits.getHeapSize() + ' / ' + Limits.getLimitHeapSize());</code>
+    <p>The <code>System.Limits</code> class reads live consumption mid-transaction — useful for defensive branching in loops that might approach a cap, and for instrumenting suspect code paths with <code>USER_DEBUG</code> checkpoints you can then trace in the log.</p>
+
+    <h2>Staying out of trouble</h2>
+    <ul>
+      <li><strong>Never put SOQL or DML in a loop.</strong> Collect IDs, query once with <code>IN :ids</code>, write once with a collection DML. This single habit prevents most SOQL 101 and DML 151 errors.</li>
+      <li><strong>Watch query rows, not just query count.</strong> 50,000 retrieved rows is reachable by one unbounded query on a big object.</li>
+      <li><strong>Control trigger recursion</strong> — every re-entry re-spends every limit.</li>
+      <li><strong>Mind heap with large payloads.</strong> Building giant strings or deserializing big JSON eats the 6 MB fast; process in chunks or async.</li>
+      <li><strong>Check the log after big transactions</strong>, not just failing ones. "96 out of 100" today is an error next month when data grows.</li>
+    </ul>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>What are governor limits in Salesforce?</summary><p>Per-transaction resource caps enforced because orgs share multitenant infrastructure: 100 SOQL queries, 150 DML statements, 10 s CPU, 6 MB heap (sync values), and more. Exceeding one throws an uncatchable limit exception and rolls back the transaction.</p></details>
+      <details><summary>How do I see governor limit usage in a debug log?</summary><p>Find <code>LIMIT_USAGE_FOR_NS</code> near the end of the log — it lists consumption against each maximum, per namespace. ForceLens renders the same data as a visual limits dashboard.</p></details>
+      <details><summary>Do managed packages get their own limits?</summary><p>Certified managed packages get separate buckets for most counted limits (SOQL, DML), but CPU time and heap are shared across all namespaces in the transaction.</p></details>
+      <details><summary>How can I check limits from Apex code?</summary><p>Use <code>System.Limits</code> methods — <code>Limits.getQueries()</code>, <code>Limits.getCpuTime()</code>, <code>Limits.getHeapSize()</code> and their <code>getLimit*</code> counterparts — to read live consumption at runtime.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>See your limits, don't count them</h2>
+      <p>Open any debug log in ForceLens and the Limits tab shows every governor limit as a progress bar — free, local, one click.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-cpu-time-limit-exceeded">Fixing "Apex CPU time limit exceeded"</a></li>
+        <li><a href="/soql-query-optimization">Finding and fixing slow SOQL queries</a></li>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Apex debug logs</a></li>
+        <li><a href="/salesforce-debug-log-analyzer">Salesforce debug log analyzer — the complete guide</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>
