@@ -2,20 +2,66 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://forcelens.vercel.app/</loc>
-    <lastmod>2026-06-21</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>1.0</priority>
+    <lastmod>2026-07-18</lastmod>
   </url>
   <url>
-    <loc>https://forcelens.vercel.app/support.html</loc>
-    <lastmod>2026-07-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://forcelens.vercel.app/salesforce-debug-log-analyzer</loc>
+    <lastmod>2026-07-18</lastmod>
   </url>
   <url>
-    <loc>https://forcelens.vercel.app/privacy.html</loc>
-    <lastmod>2026-06-21</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <loc>https://forcelens.vercel.app/how-to-read-apex-debug-logs</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/salesforce-cpu-time-limit-exceeded</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/salesforce-governor-limits-explained</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/soql-query-optimization</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/salesforce-flow-debugging</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/developer-console-alternative</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/salesforce-order-of-execution</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/salesforce-debug-log-levels</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/apex-heap-size-limit</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/salesforce-flow-error-emails</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/about</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/support</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/privacy</loc>
+    <lastmod>2026-07-18</lastmod>
+  </url>
+  <url>
+    <loc>https://forcelens.vercel.app/terms</loc>
+    <lastmod>2026-07-18</lastmod>
   </url>
 </urlset>
