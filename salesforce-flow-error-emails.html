@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Salesforce Flow Error Emails: How to Read &amp; Fix Them | ForceLens</title>
+  <meta name="description" content="Decode 'An unhandled fault has occurred in this flow': who receives flow error emails, how to change recipients, how to read the interview details, and how to trace the root cause in debug logs.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/salesforce-flow-error-emails">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/salesforce-flow-error-emails">
+  <meta property="og:title" content="Salesforce Flow Error Emails: How to Read &amp; Fix Them">
+  <meta property="og:description" content="Decode 'An unhandled fault has occurred in this flow' — recipients, interview details, and root-cause tracing with debug logs.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_flow_analyzer.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Salesforce Flow Error Emails: How to Read &amp; Fix Them">
+  <meta property="twitter:description" content="Decode 'An unhandled fault has occurred in this flow' — recipients, interview details, and root-cause tracing with debug logs.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_flow_analyzer.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Salesforce Flow Error Emails: How to Read & Fix Them",
+        "description": "Understanding flow fault emails, changing recipients, and tracing root causes with debug logs.",
+        "url": "https://forcelens.vercel.app/salesforce-flow-error-emails",
+        "image": "https://forcelens.vercel.app/assets/forcelens_flow_analyzer.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "Flow Error Emails", "item": "https://forcelens.vercel.app/salesforce-flow-error-emails" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "Who receives Salesforce flow error emails?", "acceptedAnswer": { "@type": "Answer", "text": "By default, the admin who last modified the failing flow. In Setup → Process Automation Settings, the 'Send Process or Flow Error Email to' option can be changed to notify the user who launched the flow, or the Apex exception email recipients configured in Setup → Apex Exception Email (which can include any users or external addresses)." } },
+          { "@type": "Question", "name": "What does 'An unhandled fault has occurred in this flow' mean?", "acceptedAnswer": { "@type": "Answer", "text": "A flow element failed and no fault path was connected to handle the failure, so the interview crashed and (for record-triggered flows) the triggering transaction was rolled back. The error email names the failing element and error message, and lists the element-by-element path the interview took." } },
+          { "@type": "Question", "name": "How do I find the root cause of a flow error?", "acceptedAnswer": { "@type": "Answer", "text": "Read the email's element path to find the failing element and its inputs, then reproduce the action with a debug log active — the FLOW_ELEMENT_ERROR event and the surrounding trigger/validation events show what actually caused the failure, including interactions the email can't show, like a validation rule blocking the flow's DML." } },
+          { "@type": "Question", "name": "How do I stop flow error emails for handled situations?", "acceptedAnswer": { "@type": "Answer", "text": "Add fault paths: connect the fault connector from DML and action elements to handling logic (log a record, notify, or end gracefully). A fault that is handled by a fault path does not send the unhandled-fault email." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › Flow Error Emails</nav>
+    <h1>Salesforce Flow Error Emails: How to Read and Fix Them</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>"An unhandled fault has occurred in this flow" means a flow element failed with <strong>no fault path</strong> connected. The email goes (by default) to the admin who last modified the flow, names the failing element and error, and lists the interview's element-by-element path. To fix it: read the path, reproduce with a debug log, and add fault paths so failures are handled instead of crashing.</p>
+    </div>
+
+    <h2>Anatomy of the error email</h2>
+    <p>The email contains more diagnostic material than most people read:</p>
+    <ul>
+      <li><strong>Flow name, version, and interview ID</strong> — check the version: the error may be from an older active version than the one you're editing.</li>
+      <li><strong>The error message</strong> — e.g. <em>"The flow tried to access a null value"</em>, a DML failure with the underlying message (often a validation rule or required field), or "Too many SOQL queries: 101".</li>
+      <li><strong>The element path</strong> — every element the interview executed, in order, with the failing element last. This is effectively a flow stack trace.</li>
+      <li><strong>Variable values at failure</strong> (current values of flow variables) — often revealing the null that caused everything.</li>
+      <li><strong>The triggering record ID and running user</strong> — your reproduction recipe.</li>
+    </ul>
+
+    <h2>Who gets the email — and how to change it</h2>
+    <p>In <strong>Setup → Process Automation Settings</strong>, "Send Process or Flow Error Email to" offers:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Option</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>User who last modified the process or flow (default)</td><td>Only the last editor knows anything is failing — risky if they've left the team.</td></tr>
+        <tr><td>User who launched the flow</td><td>End users see errors for flows they trigger; rarely what you want in production.</td></tr>
+        <tr><td>Apex exception email recipients</td><td>Recommended: the list in Setup → Apex Exception Email, which can include multiple admins and external addresses — one shared inbox for both Apex and Flow failures.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>From email to root cause</h2>
+    <ol>
+      <li><strong>Read the element path bottom-up.</strong> The last element failed; the elements before it produced its inputs.</li>
+      <li><strong>Check the variable values.</strong> A null record variable before a DML or assignment element is the classic culprit (a Get Records found nothing — see <a href="/salesforce-flow-debugging">Flow debugging</a> for the fix pattern).</li>
+      <li><strong>Reproduce with a debug log.</strong> The email can't show <em>why</em> a DML failed or what other automation interfered. Activate a trace flag (or use ForceLens Smart Capture), repeat the action on the triggering record, and read the log: <code>FLOW_ELEMENT_ERROR</code> marks the failure, and the surrounding <code>VALIDATION_RULE</code>, <code>CODE_UNIT_STARTED</code> (triggers) and <code>WF_RULE</code> events expose interactions — like a validation rule on a related object blocking the flow's update, or a trigger consuming the SOQL budget before the flow ran (see <a href="/salesforce-order-of-execution">order of execution</a>).</li>
+      <li><strong>Check limits.</strong> If the message is a limit error, the log's <code>LIMIT_USAGE_FOR_NS</code> section shows what consumed the budget — often not the flow itself (<a href="/salesforce-governor-limits-explained">governor limits explained</a>).</li>
+    </ol>
+
+    <h2>Preventing the crash: fault paths</h2>
+    <p>Every element that can fail — Get/Create/Update/Delete Records, actions, callouts, subflows — has a <strong>fault connector</strong>. Connect it to handling logic and the fault becomes handled: no crash, no unhandled-fault email, and (if you choose) a graceful message or a logged error record. A pragmatic pattern:</p>
+    <ul>
+      <li>Fault path → Create Records on a custom <code>Flow_Error__c</code> object (flow name, <code>{!$Flow.FaultMessage}</code>, record ID, user).</li>
+      <li>Then → a screen with a friendly message (screen flows) or a silent end (record-triggered flows).</li>
+      <li>A report or alert on <code>Flow_Error__c</code> gives the team one dashboard of flow health instead of an inbox of stack traces.</li>
+    </ul>
+    <p>Also add decision checks after every Get Records ("was anything found?") — the cheapest insurance against the null-value fault, which is the most common flow error of all.</p>
+
+    <h2>Reviewing flows before they fail</h2>
+    <p>Missing fault paths and unguarded Get Records are exactly the structural issues ForceLens's Flow analyzer flags: hand it any flow from Flow Builder and the Developer and QA lenses list unhandled fault connectors, null-risk references and bulkification concerns — with a health score and a ready .docx report. Cheaper than learning from production emails.</p>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>Who receives flow error emails?</summary><p>By default the admin who last modified the flow. Change it in Setup → Process Automation Settings — "Apex exception email recipients" is the most team-friendly option.</p></details>
+      <details><summary>What does "An unhandled fault has occurred in this flow" mean?</summary><p>An element failed with no fault path attached, crashing the interview and (for record-triggered flows) rolling back the triggering transaction. The email names the element and error and lists the executed path.</p></details>
+      <details><summary>How do I find the root cause?</summary><p>Read the element path and variable values in the email, then reproduce with a debug log — FLOW_ELEMENT_ERROR plus surrounding trigger/validation events show what the email can't.</p></details>
+      <details><summary>How do I stop unhandled-fault emails?</summary><p>Add fault paths to every fallible element. Handled faults don't send the email — and can log to a custom object instead for proper monitoring.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>Trace the failure in one click</h2>
+      <p>Reproduce the error with ForceLens Smart Capture and the analyzed log opens itself — flow events, triggers, validation and limits, all in order. Free and local.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-flow-debugging">Debugging Salesforce Flows</a></li>
+        <li><a href="/salesforce-order-of-execution">Salesforce order of execution explained</a></li>
+        <li><a href="/salesforce-governor-limits-explained">Governor limits explained</a></li>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Apex debug logs</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>
