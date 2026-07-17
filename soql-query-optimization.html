@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Find &amp; Fix Slow SOQL Queries in Salesforce Debug Logs | ForceLens</title>
+  <meta name="description" content="How to spot SOQL problems in Salesforce debug logs: queries in loops, non-selective filters, huge row counts. Learn SOQL_EXECUTE events, selectivity rules, and how to fix the 'Too many SOQL queries: 101' error.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/soql-query-optimization">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/soql-query-optimization">
+  <meta property="og:title" content="Find &amp; Fix Slow SOQL Queries in Salesforce Debug Logs">
+  <meta property="og:description" content="Spot queries in loops, non-selective filters and huge row counts in debug logs — and fix 'Too many SOQL queries: 101'.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_soql.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Find &amp; Fix Slow SOQL Queries in Salesforce Debug Logs">
+  <meta property="twitter:description" content="Spot queries in loops, non-selective filters and huge row counts in debug logs — and fix 'Too many SOQL queries: 101'.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_soql.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Find & Fix Slow SOQL Queries in Salesforce Debug Logs",
+        "description": "Using SOQL_EXECUTE events, selectivity rules and aggregation to find and fix SOQL problems in Salesforce.",
+        "url": "https://forcelens.vercel.app/soql-query-optimization",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_soql.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "SOQL Query Optimization", "item": "https://forcelens.vercel.app/soql-query-optimization" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "How do I fix 'Too many SOQL queries: 101' in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "The error means your transaction issued more than 100 SOQL queries — almost always a query inside a loop, often via a trigger firing per record or recursion. Move queries outside loops: collect IDs first, run one query with an IN clause, and store results in a Map for lookup. Also check for trigger recursion re-firing the same automation." } },
+          { "@type": "Question", "name": "What makes a SOQL query non-selective?", "acceptedAnswer": { "@type": "Answer", "text": "A filter is non-selective when it can't use an index to narrow results — e.g. filtering on a non-indexed field, using leading-wildcard LIKE '%text', negative operators (!=, NOT IN), or comparing to null. On large objects (over 200,000 records) non-selective queries in triggers can throw runtime errors and are slow everywhere." } },
+          { "@type": "Question", "name": "How do I see SOQL queries in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Each query logs a SOQL_EXECUTE_BEGIN event (with the query text and Apex line number) and a SOQL_EXECUTE_END event (with rows returned). Set the Database log category to FINEST for full detail. A log analyzer like ForceLens aggregates every query with counts and row totals in a dedicated SOQL tab." } },
+          { "@type": "Question", "name": "Does SOQL time count toward the CPU limit?", "acceptedAnswer": { "@type": "Answer", "text": "No — database execution time is excluded from the Apex CPU time limit. But slow queries still hurt total transaction time and user experience, and retrieved rows count toward the 50,000 query-row governor limit." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › SOQL Query Optimization</nav>
+    <h1>Find and Fix Slow SOQL Queries in Salesforce Debug Logs</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>To find SOQL problems in a Salesforce debug log, look at the <code>SOQL_EXECUTE_BEGIN/END</code> event pairs: repeated identical queries mean a <strong>query in a loop</strong> (the cause of "Too many SOQL queries: 101"), and large row counts on <code>SOQL_EXECUTE_END</code> flag unselective or unbounded queries. Fix them by querying once outside the loop, filtering on indexed fields, and using maps for lookups.</p>
+    </div>
+
+    <h2>Reading SOQL events in the log</h2>
+    <p>With the <em>Database</em> log category at <code>FINEST</code>, every query produces a pair:</p>
+    <code class="guide-code">10:41:12.3 (98214532)|SOQL_EXECUTE_BEGIN|[27]|Aggregations:0|SELECT Id, StageName FROM Opportunity WHERE AccountId = :acctId
+10:41:12.3 (99871220)|SOQL_EXECUTE_END|[27]|Rows:1</code>
+    <ul>
+      <li><code>[27]</code> — the Apex line that issued the query. Your jump-to-code pointer.</li>
+      <li><code>Rows:1</code> — rows returned. One row fetched 200 times is a loop query; 48,000 rows once is an unbounded query.</li>
+      <li>The elapsed-counter difference between BEGIN and END is the query's wall time.</li>
+    </ul>
+
+    <h2>The three SOQL patterns that hurt you</h2>
+    <h3>1. Queries in loops → "Too many SOQL queries: 101"</h3>
+    <p>The signature in the log is the <em>same</em> query text at the <em>same</em> line number, dozens of times. The fix is always the same shape:</p>
+    <code class="guide-code">// Bad — one query per record (fires 200 times for a bulk update)
+for (Opportunity opp : Trigger.new) {
+    Account a = [SELECT OwnerId FROM Account WHERE Id = :opp.AccountId];
+}
+
+// Good — one query, then map lookups
+Set&lt;Id&gt; acctIds = new Set&lt;Id&gt;();
+for (Opportunity opp : Trigger.new) { acctIds.add(opp.AccountId); }
+Map&lt;Id, Account&gt; accts = new Map&lt;Id, Account&gt;(
+    [SELECT OwnerId FROM Account WHERE Id IN :acctIds]);
+for (Opportunity opp : Trigger.new) {
+    Account a = accts.get(opp.AccountId);
+}</code>
+    <p>If the repeated query isn't in your code, suspect trigger recursion or a managed package — the log's execution tree shows who issued it.</p>
+
+    <h3>2. Non-selective queries</h3>
+    <p>A query is selective when its filter can use an index. These defeat indexes:</p>
+    <ul>
+      <li>Filtering on non-indexed custom fields (standard indexes: Id, Name, OwnerId, CreatedDate, SystemModstamp, lookup/master-detail fields, External IDs and unique fields).</li>
+      <li>Leading wildcards: <code>LIKE '%acme'</code>.</li>
+      <li>Negative operators: <code>!=</code>, <code>NOT IN</code>, <code>EXCLUDES</code>.</li>
+      <li>Comparisons to <code>null</code> on non-indexed fields.</li>
+    </ul>
+    <p>On objects with over ~200,000 records, non-selective filters in trigger context can throw "Non-selective query" runtime errors. Fixes: filter on indexed fields, add a custom index via Salesforce Support, or use an External ID field. The <a href="https://developer.salesforce.com/docs/atlas.en-us.salesforce_large_data_volumes_bp.meta/salesforce_large_data_volumes_bp/ldv_deployments_infrastructure_query_optimizer.htm" target="_blank" rel="noopener noreferrer">Salesforce query optimizer docs</a> cover selectivity thresholds in detail.</p>
+
+    <h3>3. Unbounded row counts</h3>
+    <p>A single query returning tens of thousands of rows eats the 50,000 query-row governor limit, bloats heap, and slows everything. Add filters, add <code>LIMIT</code>, or process with a SOQL for-loop / Batch Apex, which chunk results instead of materializing them all.</p>
+
+    <h2>Aggregate view: the fast way</h2>
+    <p>Scrolling a 40,000-line log to hand-count query repetitions is the archaeology ForceLens exists to end. Its <strong>SOQL tab</strong> aggregates every query in the transaction — count, total rows, originating code unit — so a query-in-a-loop shows up as "×200" on one row, and the unbounded query tops the rows column. The <strong>Limits</strong> tab shows the same transaction's query count against the 100 cap (<a href="/salesforce-governor-limits-explained">governor limits explained</a>).</p>
+    <img src="/assets/forcelens_tab_soql.webp" alt="ForceLens SOQL tab aggregating queries from a Salesforce debug log with counts and row totals" class="guide-img" width="1919" height="866" loading="lazy" decoding="async">
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>How do I fix "Too many SOQL queries: 101"?</summary><p>Find the query firing in a loop (same query text and line number repeated in the log), move it outside the loop with an <code>IN :ids</code> filter, and use a Map for per-record lookup. Also rule out trigger recursion re-firing automation.</p></details>
+      <details><summary>What makes a SOQL query non-selective?</summary><p>Filters that can't use an index: non-indexed fields, leading-wildcard LIKE, negative operators, and null comparisons. On large objects this causes errors in trigger context and slowness everywhere.</p></details>
+      <details><summary>How do I see SOQL queries in a debug log?</summary><p>Set the Database category to FINEST; each query then logs SOQL_EXECUTE_BEGIN (query text, line number) and SOQL_EXECUTE_END (row count). ForceLens aggregates them automatically in its SOQL tab.</p></details>
+      <details><summary>Does SOQL time count toward the CPU limit?</summary><p>No — database time is excluded from the <a href="/salesforce-cpu-time-limit-exceeded">Apex CPU limit</a>. But retrieved rows count toward the 50,000 query-row limit, and slow queries still slow the transaction.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>See every query at a glance</h2>
+      <p>Open a log in ForceLens and the SOQL tab shows each query's count, rows and origin — loop queries are unmissable. Free and local.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-governor-limits-explained">Salesforce governor limits explained</a></li>
+        <li><a href="/salesforce-cpu-time-limit-exceeded">Fixing "Apex CPU time limit exceeded"</a></li>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Apex debug logs</a></li>
+        <li><a href="/salesforce-debug-log-analyzer">Salesforce debug log analyzer — the complete guide</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>

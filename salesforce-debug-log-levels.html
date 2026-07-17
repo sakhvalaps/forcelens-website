@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Salesforce Debug Log Levels Explained (All Categories) | ForceLens</title>
+  <meta name="description" content="Every Salesforce debug log level and category explained: ApexCode, Database, System, Workflow and more — what each level (NONE to FINEST) actually logs, recommended settings, and how to stop log truncation.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/salesforce-debug-log-levels">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/salesforce-debug-log-levels">
+  <meta property="og:title" content="Salesforce Debug Log Levels Explained (All Categories)">
+  <meta property="og:description" content="What each log level from NONE to FINEST actually logs, per category — with recommended settings for common debugging tasks.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Salesforce Debug Log Levels Explained (All Categories)">
+  <meta property="twitter:description" content="What each log level from NONE to FINEST actually logs, per category — with recommended settings for common debugging tasks.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Salesforce Debug Log Levels Explained (All Categories)",
+        "description": "Salesforce debug log categories and levels explained, with recommended settings and truncation fixes.",
+        "url": "https://forcelens.vercel.app/salesforce-debug-log-levels",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "Debug Log Levels", "item": "https://forcelens.vercel.app/salesforce-debug-log-levels" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "What are the debug log levels in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "From least to most detailed: NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST. Each log category (ApexCode, Database, System, Workflow, Validation, Callout, ApexProfiling, Visualforce) is set to one of these levels in a Debug Level record, which a trace flag then applies to a user, Apex class, or automated process." } },
+          { "@type": "Question", "name": "What is the difference between a trace flag and a debug level?", "acceptedAnswer": { "@type": "Answer", "text": "A debug level is the reusable settings record that defines how verbose each category is. A trace flag applies a debug level to a specific target (user, Apex class/trigger, or the Automated Process user) for a time window. No active trace flag means no log, regardless of debug levels." } },
+          { "@type": "Question", "name": "Which log level shows System.debug output?", "acceptedAnswer": { "@type": "Answer", "text": "System.debug() statements appear when the ApexCode category is at DEBUG or higher (DEBUG, FINE, FINER, FINEST) — or at the level you passed explicitly, e.g. System.debug(LoggingLevel.ERROR, ...) shows even at ERROR." } },
+          { "@type": "Question", "name": "How do I stop my debug log from being truncated?", "acceptedAnswer": { "@type": "Answer", "text": "Lower the noisiest categories: System to INFO, Validation and Workflow to INFO or ERROR, and ApexCode from FINEST to DEBUG or FINE. Alternatively, add a class-scoped trace flag so only the class you care about logs at high detail. The 20 MB per-log cap cannot be raised." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › Debug Log Levels</nav>
+    <h1>Salesforce Debug Log Levels Explained</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>Salesforce debug logs have eight levels — <strong>NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST</strong> — set per category (ApexCode, Database, System, Workflow, and others) in a <em>Debug Level</em> record. A <em>trace flag</em> then applies that debug level to a user, class, or automated process for a time window. Higher levels log more detail but hit the 20&nbsp;MB truncation cap faster.</p>
+    </div>
+
+    <h2>Trace flags vs. debug levels — the two-part system</h2>
+    <ul>
+      <li><strong>Debug Level</strong> — a named, reusable record (like the default <code>SFDC_DevConsole</code>) that sets one level per category.</li>
+      <li><strong>Trace Flag</strong> — applies a debug level to a target for a start/expiry window. Targets can be a <em>user</em>, an <em>Apex class or trigger</em> (class-scoped tracing), or the <em>Automated Process</em> entity (for logs from scheduled flows and system automation).</li>
+    </ul>
+    <p>No active trace flag → no log at all. That's the #1 answer to "why is Salesforce not generating debug logs?" — the flag expired. (ForceLens's Smart Capture creates the flag for you; see <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs</a>.)</p>
+
+    <h2>What each category controls</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Category</th><th>Governs</th><th>Notable events it emits</th></tr></thead>
+      <tbody>
+        <tr><td>ApexCode</td><td>Apex execution: methods, statements, System.debug</td><td><code>METHOD_ENTRY/EXIT</code>, <code>USER_DEBUG</code>, <code>VARIABLE_ASSIGNMENT</code> (FINEST)</td></tr>
+        <tr><td>ApexProfiling</td><td>Profiling summaries, cumulative stats</td><td><code>CUMULATIVE_LIMIT_USAGE</code>, profiling summaries</td></tr>
+        <tr><td>Database</td><td>SOQL, SOSL, DML detail</td><td><code>SOQL_EXECUTE_BEGIN/END</code>, <code>DML_BEGIN/END</code></td></tr>
+        <tr><td>System</td><td>Platform internals and system methods</td><td><code>SYSTEM_METHOD_ENTRY/EXIT</code> — very noisy at DEBUG+</td></tr>
+        <tr><td>Workflow</td><td>Workflow rules, Process Builder, <strong>Flows</strong></td><td><code>WF_RULE_*</code>, <code>FLOW_ELEMENT_BEGIN/END</code></td></tr>
+        <tr><td>Validation</td><td>Validation rule evaluation</td><td><code>VALIDATION_RULE</code>, <code>VALIDATION_FORMULA</code></td></tr>
+        <tr><td>Callout</td><td>External HTTP/SOAP requests &amp; responses</td><td><code>CALLOUT_REQUEST/RESPONSE</code></td></tr>
+        <tr><td>Visualforce</td><td>VF page lifecycle and serialization</td><td><code>VF_*</code> events</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>What the levels actually mean</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Level</th><th>Rule of thumb</th></tr></thead>
+      <tbody>
+        <tr><td><code>NONE</code></td><td>Category is silent.</td></tr>
+        <tr><td><code>ERROR</code> / <code>WARN</code></td><td>Only failures/warnings. Good for categories you don't care about right now.</td></tr>
+        <tr><td><code>INFO</code></td><td>Key milestones — e.g. Database at INFO logs queries without row-by-row detail.</td></tr>
+        <tr><td><code>DEBUG</code></td><td>The workhorse. ApexCode at DEBUG shows <code>USER_DEBUG</code> (your System.debug output).</td></tr>
+        <tr><td><code>FINE</code> / <code>FINER</code></td><td>Adds method entries/exits and progressively more internal detail.</td></tr>
+        <tr><td><code>FINEST</code></td><td>Everything — including variable assignments in ApexCode. Maximum insight, maximum log size.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>One subtlety: <code>System.debug(LoggingLevel.ERROR, 'msg')</code> tags your statement with a level, so it survives even when ApexCode is turned down — a handy trick for permanent diagnostic lines.</p>
+
+    <h2>Recommended presets</h2>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Task</th><th>ApexCode</th><th>Database</th><th>Workflow</th><th>System</th><th>Others</th></tr></thead>
+      <tbody>
+        <tr><td>General Apex debugging</td><td>FINEST</td><td>INFO</td><td>INFO</td><td>DEBUG</td><td>INFO</td></tr>
+        <tr><td><a href="/soql-query-optimization">SOQL investigation</a></td><td>FINE</td><td>FINEST</td><td>INFO</td><td>INFO</td><td>ERROR</td></tr>
+        <tr><td><a href="/salesforce-flow-debugging">Flow debugging</a></td><td>DEBUG</td><td>INFO</td><td>FINER</td><td>INFO</td><td>ERROR</td></tr>
+        <tr><td>Log keeps truncating</td><td>DEBUG</td><td>INFO</td><td>ERROR</td><td>INFO</td><td>NONE/ERROR</td></tr>
+        <tr><td><a href="/salesforce-cpu-time-limit-exceeded">Performance / CPU</a></td><td>FINE</td><td>INFO</td><td>INFO</td><td>INFO</td><td>ApexProfiling: FINE</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Beating the 20 MB truncation cap</h2>
+    <p>When a log exceeds 20 MB, Salesforce drops lines and stamps <code>*** Skipped</code> markers — often exactly where your bug was. In order of effectiveness:</p>
+    <ol>
+      <li><strong>Silence the noise:</strong> System → INFO, Validation/Workflow → ERROR when you don't need them.</li>
+      <li><strong>Scope to a class:</strong> add a class-level trace flag (ForceLens's Advanced Capture does this) so only that class logs at FINEST while the user-level flag stays modest.</li>
+      <li><strong>Shrink the transaction:</strong> reproduce with 1 record instead of 200 where the bug allows.</li>
+    </ol>
+    <p>Whatever levels you pick, the output is still a wall of text — a <a href="/salesforce-debug-log-analyzer">debug log analyzer</a> like ForceLens turns it into an execution tree, SOQL/DML tabs and a limits dashboard, whatever the verbosity.</p>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>What are the debug log levels in Salesforce?</summary><p>NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST — set per category in a Debug Level record, applied by a trace flag.</p></details>
+      <details><summary>What's the difference between a trace flag and a debug level?</summary><p>The debug level defines verbosity per category; the trace flag applies it to a user, class, or automated process for a time window. Without an active trace flag, nothing logs.</p></details>
+      <details><summary>Which level shows System.debug output?</summary><p>ApexCode at DEBUG or higher — unless you tag the statement with an explicit level like <code>LoggingLevel.ERROR</code>, which shows even at lower settings.</p></details>
+      <details><summary>How do I stop log truncation?</summary><p>Lower noisy categories (System, Validation, Workflow), scope high-detail tracing to a single class, or shrink the reproducing transaction. The 20 MB cap itself can't be raised.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>Set levels in one click</h2>
+      <p>ForceLens's Smart Capture and Advanced Capture create the trace flag with sensible levels for you — then open the captured log analyzed. Free and local.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Apex debug logs</a></li>
+        <li><a href="/salesforce-debug-log-analyzer">Salesforce debug log analyzer — the complete guide</a></li>
+        <li><a href="/salesforce-flow-debugging">Debugging Salesforce Flows</a></li>
+        <li><a href="/salesforce-order-of-execution">Salesforce order of execution explained</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>

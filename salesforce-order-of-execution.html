@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <title>Salesforce Order of Execution Explained (Save Order, Step by Step) | ForceLens</title>
+  <meta name="description" content="The complete Salesforce order of execution for a record save: before-save flows, triggers, validation, workflow, after-save flows, roll-ups and commit — step by step, with how to see it in your own debug logs.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" type="image/svg+xml" href="/assets/icon32.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon32.png">
+  <link rel="apple-touch-icon" href="/assets/icon128.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="canonical" href="https://forcelens.vercel.app/salesforce-order-of-execution">
+
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://forcelens.vercel.app/salesforce-order-of-execution">
+  <meta property="og:title" content="Salesforce Order of Execution Explained (Save Order, Step by Step)">
+  <meta property="og:description" content="Every step Salesforce runs when a record is saved — and how to see the real order in your own debug logs.">
+  <meta property="og:image" content="https://forcelens.vercel.app/assets/forcelens_tab_order_of_execution.png">
+  <meta property="og:site_name" content="ForceLens">
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Salesforce Order of Execution Explained (Save Order, Step by Step)">
+  <meta property="twitter:description" content="Every step Salesforce runs when a record is saved — and how to see the real order in your own debug logs.">
+  <meta property="twitter:image" content="https://forcelens.vercel.app/assets/forcelens_tab_order_of_execution.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "headline": "Salesforce Order of Execution Explained (Save Order, Step by Step)",
+        "description": "The complete Salesforce order of execution for a record save, and how to observe it in debug logs.",
+        "url": "https://forcelens.vercel.app/salesforce-order-of-execution",
+        "image": "https://forcelens.vercel.app/assets/forcelens_tab_order_of_execution.png",
+        "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
+        "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
+        "dateModified": "2026-07-18"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://forcelens.vercel.app/" },
+          { "@type": "ListItem", "position": 2, "name": "Salesforce Debug Log Analyzer", "item": "https://forcelens.vercel.app/salesforce-debug-log-analyzer" },
+          { "@type": "ListItem", "position": 3, "name": "Order of Execution", "item": "https://forcelens.vercel.app/salesforce-order-of-execution" }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "What is the Salesforce order of execution?", "acceptedAnswer": { "@type": "Answer", "text": "It's the fixed sequence of steps Salesforce runs when a record is saved: system validation, before-save record-triggered flows, before triggers, validation rules, duplicate rules, the save (uncommitted), after triggers, assignment/auto-response/workflow rules, escalation rules, after-save record-triggered flows, entitlement rules, roll-up summary recalculation, and finally the commit followed by post-commit logic like emails and async jobs." } },
+          { "@type": "Question", "name": "Do before-save flows run before or after triggers?", "acceptedAnswer": { "@type": "Answer", "text": "Before-save record-triggered flows run BEFORE before triggers. Sequence at the start of a save: system validation, then before-save flows, then before triggers, then validation rules." } },
+          { "@type": "Question", "name": "Why does my trigger fire twice on one save?", "acceptedAnswer": { "@type": "Answer", "text": "Usually because a workflow rule field update, an after-save flow update to the same record, or another trigger's DML re-saved the record — which re-runs part of the order of execution, including update triggers (workflow field updates re-fire before and after update triggers one additional time). A debug log shows the exact re-entry point." } },
+          { "@type": "Question", "name": "How can I see the order of execution in my org?", "acceptedAnswer": { "@type": "Answer", "text": "Capture a debug log of the save and read the sequence of CODE_UNIT_STARTED, FLOW_START_INTERVIEW, VALIDATION_RULE and WF_RULE events — or open the log in ForceLens, whose Order of Execution view reconstructs the sequence visually from those events." } }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/css/style.css?v=116">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="nav-header">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="32" height="32">
+        <span>ForceLens</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#key-features">Features</a>
+        <a href="/#simulator">Demo</a>
+        <a href="/salesforce-debug-log-analyzer" class="active">Guides</a>
+        <a href="/support">Support</a>
+        <a href="/privacy">Trust Center</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add to Chrome</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="nav-links" aria-expanded="false">
+        <span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span>
+      </button>
+    </div>
+  </header>
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
+  <main id="main" class="guide-main">
+    <nav class="guide-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a> › <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a> › Order of Execution</nav>
+    <h1>Salesforce Order of Execution, Step by Step</h1>
+    <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
+
+    <div class="guide-answer">
+      <p>When a record is saved, Salesforce runs a <strong>fixed sequence</strong>: system validation → before-save flows → before triggers → validation rules → duplicate rules → save (uncommitted) → after triggers → assignment, auto-response and workflow rules → escalation rules → after-save flows → entitlements → roll-up summaries → commit → post-commit logic (emails, async jobs). Knowing this order explains most "why did my field get overwritten?" mysteries.</p>
+    </div>
+
+    <h2>The full sequence for a record save</h2>
+    <ol>
+      <li><strong>Load / initialize.</strong> The original record is loaded (or initialized for insert) and new field values are overwritten onto it.</li>
+      <li><strong>System validation.</strong> Required fields, field formats, maximum lengths, foreign keys. (For UI saves, layout-level rules run too.)</li>
+      <li><strong>Before-save record-triggered flows.</strong> Fast same-record updates, no extra save needed.</li>
+      <li><strong>Before triggers</strong> (<code>before insert/update/delete</code>).</li>
+      <li><strong>System validation again + custom validation rules.</strong> Your validation rules run <em>after</em> before triggers — so a before trigger can fix data that would otherwise fail validation.</li>
+      <li><strong>Duplicate rules.</strong> A blocking duplicate rule aborts the save here.</li>
+      <li><strong>Record saved to the database — but not committed.</strong> IDs exist now; nothing is permanent yet.</li>
+      <li><strong>After triggers</strong> (<code>after insert/update/...</code>).</li>
+      <li><strong>Assignment rules</strong> (Leads/Cases), then <strong>auto-response rules</strong>.</li>
+      <li><strong>Workflow rules.</strong> ⚠️ If a workflow <em>field update</em> changes the record, <strong>before and after update triggers fire one more time</strong> (only once more — not infinitely).</li>
+      <li><strong>Escalation rules</strong> (Cases).</li>
+      <li><strong>After-save record-triggered flows</strong> (and legacy processes). Updates to the same record here re-enter the save sequence.</li>
+      <li><strong>Entitlement rules.</strong></li>
+      <li><strong>Roll-up summaries &amp; cross-object formulas.</strong> Parent (and grandparent) records recalculate and save — running <em>their</em> triggers.</li>
+      <li><strong>Criteria-based sharing evaluation.</strong></li>
+      <li><strong>Commit.</strong> Everything above succeeds or the whole transaction rolls back.</li>
+      <li><strong>Post-commit logic.</strong> Emails send, and queued async work (future methods, queueables) is enqueued to run in separate transactions.</li>
+    </ol>
+    <p>This is the standard sequence as documented in the official <a href="https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_order_of_execution.htm" target="_blank" rel="noopener noreferrer">Salesforce order-of-execution reference</a> — worth bookmarking, since Salesforce occasionally adjusts details between releases.</p>
+
+    <h2>The consequences that bite people</h2>
+    <ul>
+      <li><strong>"My validation rule didn't catch it"</strong> — because a workflow field update or after-save flow changed the value <em>after</em> validation ran.</li>
+      <li><strong>"My trigger ran twice"</strong> — workflow field updates and same-record after-save flow updates legitimately re-fire update triggers. If your trigger isn't idempotent, you get doubled logic.</li>
+      <li><strong>"The rollup didn't see my change"</strong> — order matters: roll-ups recalculate near the end; logic that reads parent totals in an after trigger sees pre-recalc values.</li>
+      <li><strong>"The email sent but the record failed"</strong> — it can't: emails go post-commit. But async jobs enqueued during the transaction die with a rollback.</li>
+      <li><strong>Recursion cascades</strong> — trigger updates parent → parent trigger updates children → repeat. Each hop re-spends <a href="/salesforce-governor-limits-explained">governor limits</a> and <a href="/salesforce-cpu-time-limit-exceeded">CPU</a>.</li>
+    </ul>
+
+    <h2>Seeing the real order in your own org</h2>
+    <p>The list above is the theory. Your org's reality — which of <em>your</em> flows, triggers and rules ran, in which order, for a specific save — is written in the debug log as a sequence of <code>CODE_UNIT_STARTED</code>, <code>FLOW_START_INTERVIEW</code>, <code>VALIDATION_RULE</code> and <code>WF_RULE_*</code> events. Reading that interleaving by hand works (see <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs</a>) but is slow.</p>
+    <p>This is ForceLens's signature feature: its <strong>Order of Execution</strong> view reconstructs the diagram from your actual log — every trigger, flow, validation and workflow in the order they really fired, including re-entries. The whiteboard drawing, generated from production truth.</p>
+    <img src="/assets/forcelens_tab_order_of_execution.webp" alt="ForceLens Order of Execution view reconstructing a Salesforce record save from a debug log" class="guide-img" width="1919" height="873" loading="lazy" decoding="async">
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <div class="guide-faq">
+      <details><summary>What is the Salesforce order of execution?</summary><p>The fixed sequence of steps Salesforce runs on every record save — from system validation and before-save flows through triggers, rules, after-save flows and roll-ups to the final commit and post-commit logic.</p></details>
+      <details><summary>Do before-save flows run before or after triggers?</summary><p>Before — the start of the sequence is: system validation → before-save flows → before triggers → validation rules.</p></details>
+      <details><summary>Why does my trigger fire twice on one save?</summary><p>A workflow field update or a same-record after-save flow update re-saved the record, re-firing update triggers. The debug log shows the exact re-entry.</p></details>
+      <details><summary>How can I see the order of execution for a real save?</summary><p>Capture a debug log of the save and follow the event sequence — or open it in ForceLens, which reconstructs the order visually.</p></details>
+    </div>
+
+    <div class="guide-cta">
+      <h2>See your org's real execution order</h2>
+      <p>Capture any save with ForceLens and get the order of execution as a diagram — triggers, flows, validation, re-entries and all. Free and local.</p>
+      <p><a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Add ForceLens to Chrome — Free</a></p>
+    </div>
+
+    <nav class="guide-related" aria-label="Related guides">
+      <h2>Related guides</h2>
+      <ul>
+        <li><a href="/salesforce-flow-debugging">Debugging Salesforce Flows</a></li>
+        <li><a href="/how-to-read-apex-debug-logs">How to read Apex debug logs</a></li>
+        <li><a href="/salesforce-cpu-time-limit-exceeded">Fixing "Apex CPU time limit exceeded"</a></li>
+        <li><a href="/salesforce-debug-log-analyzer">Salesforce debug log analyzer — the complete guide</a></li>
+      </ul>
+    </nav>
+  </main>
+
+  <footer class="main-footer site-footer">
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo">
+            <img src="/assets/icon32.svg?v=2" alt="ForceLens Logo" width="28" height="28">
+            <span>ForceLens</span>
+          </a>
+          <p>The free Salesforce debug log analyzer. See the true order of execution, SOQL, CPU time and governor limits — locally, in your browser.</p>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer" class="btn btn-primary site-footer-cta">Add to Chrome — Free</a>
+        </div>
+        <nav class="site-footer-col" aria-label="Product">
+          <span class="site-footer-title">Product</span>
+          <a href="/#key-features">Features</a>
+          <a href="/#integration">How It Works</a>
+          <a href="/#simulator">Live Demo</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank" rel="noopener noreferrer">Chrome Web Store</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Salesforce debugging guides">
+          <span class="site-footer-title">Guides</span>
+          <a href="/salesforce-debug-log-analyzer">Debug Log Analyzer</a>
+          <a href="/how-to-read-apex-debug-logs">How to Read Apex Logs</a>
+          <a href="/salesforce-cpu-time-limit-exceeded">Fix CPU Time Limit</a>
+          <a href="/salesforce-governor-limits-explained">Governor Limits</a>
+          <a href="/soql-query-optimization">SOQL Optimization</a>
+          <a href="/salesforce-flow-debugging">Flow Debugging</a>
+          <a href="/salesforce-order-of-execution">Order of Execution</a>
+          <a href="/salesforce-debug-log-levels">Debug Log Levels</a>
+          <a href="/apex-heap-size-limit">Heap Size Limit</a>
+          <a href="/salesforce-flow-error-emails">Flow Error Emails</a>
+          <a href="/developer-console-alternative">Dev Console Alternatives</a>
+        </nav>
+        <nav class="site-footer-col" aria-label="Company">
+          <span class="site-footer-title">Company</span>
+          <a href="/about">About</a>
+          <a href="/support">Support Portal</a>
+          <a href="/privacy">Privacy &amp; Trust Center</a>
+          <a href="/terms">Terms of Use</a>
+          <a href="mailto:forcelens.support@gmail.com">Contact</a>
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <span>Copyright &copy; 2026 ForceLens. All Rights Reserved.</span>
+        <span class="site-footer-credit">Crafted by <strong>Prit Sakhvala</strong> <span class="footer-credit-role">Salesforce Developer</span></span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/app.js?v=102" defer></script>
+</body>
+</html>
