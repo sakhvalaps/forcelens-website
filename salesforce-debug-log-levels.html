@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,19 @@
           { "@type": "Question", "name": "What are the debug log levels in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "From least to most detailed: NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST. Each log category (ApexCode, Database, System, Workflow, Validation, Callout, ApexProfiling, Visualforce) is set to one of these levels in a Debug Level record, which a trace flag then applies to a user, Apex class, or automated process." } },
           { "@type": "Question", "name": "What is the difference between a trace flag and a debug level?", "acceptedAnswer": { "@type": "Answer", "text": "A debug level is the reusable settings record that defines how verbose each category is. A trace flag applies a debug level to a specific target (user, Apex class/trigger, or the Automated Process user) for a time window. No active trace flag means no log, regardless of debug levels." } },
           { "@type": "Question", "name": "Which log level shows System.debug output?", "acceptedAnswer": { "@type": "Answer", "text": "System.debug() statements appear when the ApexCode category is at DEBUG or higher (DEBUG, FINE, FINER, FINEST) — or at the level you passed explicitly, e.g. System.debug(LoggingLevel.ERROR, ...) shows even at ERROR." } },
-          { "@type": "Question", "name": "How do I stop my debug log from being truncated?", "acceptedAnswer": { "@type": "Answer", "text": "Lower the noisiest categories: System to INFO, Validation and Workflow to INFO or ERROR, and ApexCode from FINEST to DEBUG or FINE. Alternatively, add a class-scoped trace flag so only the class you care about logs at high detail. The 20 MB per-log cap cannot be raised." } }
+          { "@type": "Question", "name": "How do I stop my debug log from being truncated?", "acceptedAnswer": { "@type": "Answer", "text": "Lower the noisiest categories: System to INFO, Validation and Workflow to INFO or ERROR, and ApexCode from FINEST to DEBUG or FINE. Alternatively, add a class-scoped trace flag so only the class you care about logs at high detail. The 20 MB per-log cap cannot be raised." } },
+          { "@type": "Question", "name": "How long does a Salesforce trace flag last?", "acceptedAnswer": { "@type": "Answer", "text": "A maximum of 24 hours. The trace flag's expiration date must be less than 24 hours after its start date, so there is no permanent logging option and ongoing investigations require renewing the flag each day. An expired trace flag is the most common reason debug logs stop being generated." } },
+          { "@type": "Question", "name": "Can I use a user trace flag and a class trace flag at the same time?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, and it is the most effective way to avoid log truncation. Salesforce documents that when both user and entity-level flags exist, the user flags take precedence until a method from a class with an entity trace flag is entered, and the user trace flags are restored when that method returns. Combining a quiet user-level debug level with a FINEST class-level one gives high detail only where needed." } },
+          { "@type": "Question", "name": "Which debug log level shows Salesforce Flow elements?", "acceptedAnswer": { "@type": "Answer", "text": "The Workflow category controls Flow logging, despite not being named Flow. Setting Workflow to FINE shows which elements executed, and FINER adds variable values. If a log shows Apex triggers but no flow events, this category naming is almost always the reason." } },
+          { "@type": "Question", "name": "Why do my scheduled jobs produce no debug log?", "acceptedAnswer": { "@type": "Answer", "text": "A user trace flag only captures actions performed in that user's session. Scheduled flows, platform event-triggered flows and similar system automation run under the Automated Process entity and need a trace flag set on that entity. Likewise, work performed through the API by an integration user requires tracing that integration user rather than yourself." } },
+          { "@type": "Question", "name": "Does raising the Database log level make debug logs much larger?", "acceptedAnswer": { "@type": "Answer", "text": "Much less than raising ApexCode. The expensive settings are ApexCode at FINEST, which logs every variable assignment, and System at DEBUG or above. Database, Validation and Callout events occur far less frequently in a transaction, so raising those categories costs comparatively little log size." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -105,6 +110,25 @@
     </ul>
     <p>No active trace flag → no log at all. That's the #1 answer to "why is Salesforce not generating debug logs?" — the flag expired. (ForceLens's Smart Capture creates the flag for you; see <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs</a>.)</p>
 
+    <h3>The constraints that catch people out</h3>
+    <p>Four rules from the TraceFlag specification explain most of the confusion around why logging behaves unexpectedly:</p>
+    <ul>
+      <li><strong>A trace flag lasts at most 24 hours.</strong> The expiration date must be less than 24 hours after the start date. There is no "leave it on permanently" option — long-running investigations need the flag renewed daily.</li>
+      <li><strong>Only one trace flag per entity can be active at a time.</strong> You cannot stack two flags on the same user with different debug levels and expect both to apply.</li>
+      <li><strong>User flags and class flags interact in a specific way.</strong> Salesforce documents that "if there are both user and entity-level flags, the user flags take precedence until a method from a class with an entity trace flag is entered. When the method returns, the user trace flags are restored."</li>
+      <li><strong>Class-scoped flags cannot target a user.</strong> The <code>CLASS_TRACING</code> type applies to an Apex class or trigger; user-level logging uses a separate flag type.</li>
+    </ul>
+    <p>That third rule is the powerful one, and it is the basis of the best technique on this page. You can run a <strong>quiet user-level flag</strong> alongside a <strong>verbose class-level flag</strong>: the transaction logs sparsely everywhere except inside the class you care about, which logs at <code>FINEST</code>. You get statement-level detail exactly where you need it while the rest of the transaction stays small enough to avoid truncation.</p>
+    <p>This is the single most effective answer to "my log truncates before reaching my bug", and it is underused because the precedence behaviour is not obvious from the Setup UI.</p>
+
+    <h3>Where to set them</h3>
+    <p>The same two-part system is exposed differently depending on where you work, which is a common source of confusion when instructions do not match what you see on screen.</p>
+    <p><strong>Setup → Debug Logs.</strong> The canonical place. Add a trace flag under User Trace Flags, choose the traced entity and time window, and pick or create a debug level. This is the only interface exposing all trace flag types, including class-scoped and Automated Process flags.</p>
+    <p><strong>Developer Console.</strong> Opening the Console automatically creates a trace flag for you with the <code>SFDC_DevConsole</code> debug level — which is why logs sometimes appear without you configuring anything. Change levels via <em>Debug → Change Log Levels</em>. Convenient, but it only traces you, and closing the Console does not necessarily clear the flag.</p>
+    <p><strong>VS Code with the Salesforce Extensions.</strong> The <em>SFDX: Turn On Apex Debug Log for Replay Debugger</em> command sets a trace flag tuned for replay debugging. Note that it uses its own level configuration, so a log captured this way may not contain what you expected if you were following Setup-based instructions.</p>
+    <p><strong>Tooling API.</strong> For automation, <code>TraceFlag</code> and <code>DebugLevel</code> are both writable objects. Teams that debug regularly often script flag creation rather than clicking through Setup each time.</p>
+    <p>ForceLens's Smart Capture sits in this list too: it creates the trace flag with appropriate levels, waits for the log, and opens it parsed — removing the round trip through Setup entirely.</p>
+
     <h2>What each category controls</h2>
     <div class="guide-table-wrap">
     <table class="guide-table">
@@ -123,6 +147,7 @@
     </div>
 
     <h2>What the levels actually mean</h2>
+    <p>The levels are cumulative: each one includes everything the levels below it emit, so <code>FINE</code> gives you all of <code>DEBUG</code>'s output plus more. Setting a category higher never removes information — it only adds volume, which is why the cost of over-setting is truncation rather than missing events.</p>
     <div class="guide-table-wrap">
     <table class="guide-table">
       <thead><tr><th>Level</th><th>Rule of thumb</th></tr></thead>
@@ -138,6 +163,30 @@
     </div>
     <p>One subtlety: <code>System.debug(LoggingLevel.ERROR, 'msg')</code> tags your statement with a level, so it survives even when ApexCode is turned down — a handy trick for permanent diagnostic lines.</p>
 
+    <h3>Which level do you need for a given event?</h3>
+    <p>Working the other way round is usually more practical: you know which event you are looking for, and you need to know the minimum level that emits it. Setting anything higher only costs you log size.</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>You want to see</th><th>Category</th><th>Recommended level</th></tr></thead>
+      <tbody>
+        <tr><td>Your <code>System.debug()</code> output</td><td>ApexCode</td><td><code>DEBUG</code></td></tr>
+        <tr><td>Which triggers and classes ran</td><td>ApexCode</td><td><code>INFO</code></td></tr>
+        <tr><td>Method entry and exit</td><td>ApexCode</td><td><code>FINE</code></td></tr>
+        <tr><td>Variable assignments</td><td>ApexCode</td><td><code>FINEST</code></td></tr>
+        <tr><td>SOQL query text and row counts</td><td>Database</td><td><code>INFO</code></td></tr>
+        <tr><td>DML operations and row counts</td><td>Database</td><td><code>INFO</code></td></tr>
+        <tr><td>Governor limit consumption</td><td>ApexProfiling</td><td><code>INFO</code></td></tr>
+        <tr><td>Which Flow elements executed</td><td>Workflow</td><td><code>FINE</code></td></tr>
+        <tr><td>Flow variable values</td><td>Workflow</td><td><code>FINER</code></td></tr>
+        <tr><td>Validation rule results</td><td>Validation</td><td><code>INFO</code></td></tr>
+        <tr><td>HTTP request and response bodies</td><td>Callout</td><td><code>INFO</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>These are working recommendations rather than exact thresholds — Salesforce documents the full event-to-level mapping in its <a href="https://help.salesforce.com/s/articleView?id=platform.code_debug_log_details.htm&amp;type=5" target="_blank" rel="noopener noreferrer">debug log details reference</a>, and levels can shift between releases. If an event you expected is missing, raising that one category a single step is usually enough.</p>
+    <p>Two observations worth internalising. <strong>Most of what you need is available at <code>INFO</code> or <code>FINE</code></strong> — the reflex to set everything to <code>FINEST</code> buys very little beyond variable assignments while multiplying log size several times over.</p>
+    <p>And <strong>the expensive settings are specific</strong>: <code>ApexCode</code> at <code>FINEST</code> and <code>System</code> at <code>DEBUG</code> or above are what actually fill logs. Raising <code>Database</code>, <code>Validation</code> or <code>Callout</code> costs comparatively little, because those events are far less frequent.</p>
+
     <h2>Recommended presets</h2>
     <div class="guide-table-wrap">
     <table class="guide-table">
@@ -152,13 +201,48 @@
     </table>
     </div>
 
+    <h2>Choosing levels for a real investigation</h2>
+    <p>The presets above are starting points. In practice you adjust based on what the first log fails to show you, and these three scenarios cover most of that adjustment.</p>
+
+    <h3>"I can see it failed, but not why"</h3>
+    <p>The log names an exception and a line number, but the values that caused it are invisible. Raise <code>ApexCode</code> to <code>FINEST</code> — but scope it to the failing class with a class-level trace flag rather than applying it to your whole user session. Variable assignments appear immediately before the failure, usually answering the question outright.</p>
+    <p>If the transaction is large enough that even a scoped log truncates, reproduce with a single record instead of a bulk operation. Most logic bugs reproduce at n=1; only limit and bulkification bugs genuinely require volume.</p>
+
+    <h3>"The record changed and I do not know what changed it"</h3>
+    <p>A field holds an unexpected value after a save. Here you need breadth rather than depth, because the culprit could be Apex, a flow, workflow, or a validation-driven side effect. Set <code>ApexCode: INFO</code>, <code>Workflow: FINE</code>, <code>Validation: INFO</code>, <code>Database: INFO</code>, and leave <code>System</code> low.</p>
+    <p>This produces a compact log showing every automation that touched the record in <a href="/salesforce-order-of-execution">order of execution</a>, without the statement-level noise that would bury it. Search the log for the field name; the last write before <code>EXECUTION_FINISHED</code> is the one that stuck.</p>
+
+    <h3>"It only fails in production"</h3>
+    <p>The hardest case, because verbose logging on a busy production org risks both truncation and exhausting the org's log allocation. Keep levels deliberately low — <code>ApexCode: INFO</code>, <code>ApexProfiling: INFO</code>, everything else <code>ERROR</code> — and rely on the limit summary rather than statement detail.</p>
+    <p><code>ApexProfiling</code> at <code>INFO</code> is the important setting here: it gives you <code>LIMIT_USAGE_FOR_NS</code> and cumulative limit data, which is usually what production-only failures come down to. Data volume and competing automation push a transaction over a threshold it clears comfortably in a sandbox, and the limit summary shows that in a few lines rather than a few hundred megabytes.</p>
+    <p>Set the flag for a narrow window around a known reproduction rather than leaving it running. A verbose flag on an active production user can generate the 1,000 MB that disables trace flags org-wide, taking everyone else's logging down with it.</p>
+
     <h2>Beating the 20 MB truncation cap</h2>
-    <p>When a log exceeds 20 MB, Salesforce drops lines and stamps <code>*** Skipped</code> markers — often exactly where your bug was. In order of effectiveness:</p>
+    <p>When a log exceeds 20 MB, Salesforce drops lines and stamps <code>*** Skipped</code> markers — and because it removes lines from the middle rather than the end, the omission is often exactly where your bug was. In order of effectiveness:</p>
     <ol>
       <li><strong>Silence the noise:</strong> System → INFO, Validation/Workflow → ERROR when you don't need them.</li>
       <li><strong>Scope to a class:</strong> add a class-level trace flag (ForceLens's Advanced Capture does this) so only that class logs at FINEST while the user-level flag stays modest.</li>
-      <li><strong>Shrink the transaction:</strong> reproduce with 1 record instead of 200 where the bug allows.</li>
+      <li><strong>Shrink the transaction:</strong> reproduce with 1 record instead of 200 where the bug allows, since most logic bugs reproduce at a single record and only limit or bulkification problems genuinely need volume.</li>
     </ol>
+    <h3>The two-flag technique, step by step</h3>
+    <p>Option 2 above deserves spelling out, because it solves truncation properly rather than trading away the detail you need:</p>
+    <ol>
+      <li>Create a <strong>quiet</strong> debug level — <code>ApexCode: INFO</code>, <code>Database: INFO</code>, everything else <code>ERROR</code> or <code>NONE</code>.</li>
+      <li>Apply it to your <strong>user</strong> trace flag. The transaction now logs its skeleton without detail.</li>
+      <li>Create a <strong>verbose</strong> debug level — <code>ApexCode: FINEST</code>.</li>
+      <li>Apply that to a <strong>class-level</strong> trace flag on the specific class or trigger you are investigating.</li>
+    </ol>
+    <p>Because Salesforce restores the user-level flag when a traced class's method returns, you get a compact log of the whole transaction with a high-detail window around exactly the code you care about. A transaction that truncated at 20 MB under blanket <code>FINEST</code> will often come in at a fraction of that.</p>
+
+    <h3>Logging automated and system processes</h3>
+    <p>User trace flags only capture what that user's session does. Work running under system contexts needs a different target, which is why scheduled jobs and platform event handlers so often produce no log at all.</p>
+    <p>Set a trace flag on the <strong>Automated Process</strong> entity to capture scheduled flows, platform event-triggered flows, and other automation running as the system rather than a person. Integration users are a related case: if an external system writes through the API, trace <em>that</em> user, not yourself — the log follows whoever performed the action, not whoever is investigating it.</p>
+
+    <h3>Keeping levels honest over time</h3>
+    <p>Two habits prevent the slow degradation that leaves an org unable to log anything useful:</p>
+    <p><strong>Remove trace flags when you are done.</strong> Flags expire within 24 hours, but a team that habitually renews verbose flags on active users can generate enough volume to exhaust the org's log allocation — at which point nobody can add a new flag until logs are deleted. On shared sandboxes this is the most common cause of "logging just stopped working".</p>
+    <p><strong>Keep a small set of named debug levels.</strong> Rather than editing one level's settings for every investigation, create a handful of reusable records matching the presets above — one for Apex, one for SOQL, one for Flow, one minimal. Switching a trace flag between named levels takes seconds and avoids the situation where nobody remembers what the current settings were meant to capture.</p>
+
     <p>Whatever levels you pick, the output is still a wall of text — a <a href="/salesforce-debug-log-analyzer">debug log analyzer</a> like ForceLens turns it into an execution tree, SOQL/DML tabs and a limits dashboard, whatever the verbosity.</p>
 
     <h2 id="faq">Frequently asked questions</h2>
@@ -167,6 +251,11 @@
       <details><summary>What's the difference between a trace flag and a debug level?</summary><p>The debug level defines verbosity per category; the trace flag applies it to a user, class, or automated process for a time window. Without an active trace flag, nothing logs.</p></details>
       <details><summary>Which level shows System.debug output?</summary><p>ApexCode at DEBUG or higher — unless you tag the statement with an explicit level like <code>LoggingLevel.ERROR</code>, which shows even at lower settings.</p></details>
       <details><summary>How do I stop log truncation?</summary><p>Lower noisy categories (System, Validation, Workflow), scope high-detail tracing to a single class, or shrink the reproducing transaction. The 20 MB cap itself can't be raised.</p></details>
+      <details><summary>How long does a trace flag last?</summary><p>A maximum of 24 hours — the expiration date must be less than 24 hours after the start date. There is no permanent option, so ongoing investigations need the flag renewed each day. An expired flag is the most common reason logs stop appearing.</p></details>
+      <details><summary>Can I have a user trace flag and a class trace flag at the same time?</summary><p>Yes, and it is the best way to avoid truncation. Salesforce documents that user flags take precedence until a method from a class with an entity trace flag is entered, and the user flags are restored when it returns. Run a quiet user-level level plus a <code>FINEST</code> class-level one to get detail only where you need it.</p></details>
+      <details><summary>Which log level shows Flow elements?</summary><p>The <strong>Workflow</strong> category, not one named "Flow". <code>FINE</code> shows which elements executed; <code>FINER</code> adds variable values. If you are seeing triggers but no flow events, this naming is almost always why.</p></details>
+      <details><summary>Why do my scheduled jobs produce no debug log?</summary><p>Because a user trace flag only captures that user's session. Scheduled flows, platform event handlers and similar system automation run under the Automated Process entity, which needs its own trace flag. Similarly, API work performed by an integration user requires tracing that user rather than yourself.</p></details>
+      <details><summary>Does raising Database to FINEST make logs much bigger?</summary><p>Far less than raising ApexCode. The expensive settings are <code>ApexCode</code> at <code>FINEST</code>, which logs every variable assignment, and <code>System</code> at <code>DEBUG</code> or above. Database, Validation and Callout events fire much less frequently, so raising those is comparatively cheap.</p></details>
     </div>
 
     <div class="guide-cta">

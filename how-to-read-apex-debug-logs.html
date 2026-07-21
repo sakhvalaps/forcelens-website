@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_log_explorer.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "HowTo",
@@ -66,14 +66,18 @@
           { "@type": "Question", "name": "How do I enable debug logs in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "In Setup, search for Debug Logs, click New under User Trace Flags, pick the user, a start/expiry time, and a debug level (SFDC_DevConsole is a common default). Logs then generate for every transaction that user runs until the flag expires." } },
           { "@type": "Question", "name": "Why is my debug log truncated?", "acceptedAnswer": { "@type": "Answer", "text": "Debug logs are capped at 20 MB per transaction. When a log exceeds the cap, Salesforce skips lines (you'll see '*** Skipped' markers). Reduce log levels for noisy categories like System and Validation, or scope tracing to a specific class." } },
           { "@type": "Question", "name": "What log level should I use for Apex debugging?", "acceptedAnswer": { "@type": "Answer", "text": "A good starting point is ApexCode=FINEST, ApexProfiling=INFO, Database=INFO, System=DEBUG, with everything else at INFO or lower. Raise Database to FINEST when investigating SOQL, and lower ApexCode if the log truncates." } },
-          { "@type": "Question", "name": "Where are debug logs stored and for how long?", "acceptedAnswer": { "@type": "Answer", "text": "Logs live in Setup → Debug Logs. System-generated debug logs are retained for 24 hours, and the org keeps at most 1,000 MB of logs — older ones get deleted as new logs arrive, so save anything important promptly." } }
+          { "@type": "Question", "name": "Where are debug logs stored and for how long?", "acceptedAnswer": { "@type": "Answer", "text": "Logs live in Setup → Debug Logs. System-generated debug logs are retained for 24 hours, and the org keeps at most 1,000 MB of logs — older ones get deleted as new logs arrive, so save anything important promptly." } },
+          { "@type": "Question", "name": "Why is no Salesforce debug log being generated at all?", "acceptedAnswer": { "@type": "Answer", "text": "Usually one of five causes: the trace flag expired; you traced the wrong user, since the log follows whoever triggered execution and may be an integration or Automated Process user; the org's 1,000 MB debug log allocation is full, which blocks adding or editing trace flags; trace flags were automatically disabled after generating more than 1,000 MB of logs in a 15-minute window; or the log already expired after its 24-hour retention." } },
+          { "@type": "Question", "name": "What is the difference between EXCEPTION_THROWN and FATAL_ERROR in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "EXCEPTION_THROWN records every exception raised during the transaction, including ones your code caught and handled, so many are normal. FATAL_ERROR is the unhandled exception that actually rolled the transaction back. When debugging a failure, search for FATAL_ERROR first." } },
+          { "@type": "Question", "name": "How do I read the stack trace in a Salesforce debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Read it bottom-up. The last line is the entry point, usually the trigger, and the first line is where the exception was thrown. Each line gives the class, method and line number, letting you trace the path from entry point to failure. The fix often belongs in a calling method rather than at the line that threw." } },
+          { "@type": "Question", "name": "Why does my error not appear in the debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Most often the work ran asynchronously: future methods, Queueable jobs and each Batch Apex chunk execute as separate transactions with their own logs, written when the job runs rather than when it was enqueued. Also check whether the log was truncated at the 20 MB cap, or whether a validation rule rejected the save before Apex executed at all." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -115,6 +119,19 @@
       <li>Trace flags expire — a "why is no log generating?" mystery is almost always an expired flag.</li>
       <li>The debug level decides what the log contains. Too low and your clue isn't logged; too high and the log truncates.</li>
     </ul>
+    <h3>Why no log was generated</h3>
+    <p>This is the most common blocker, and it is almost never the code. Work through these in order:</p>
+    <ul>
+      <li><strong>The trace flag expired.</strong> Flags are time-boxed and silently stop working when the window closes. Check the expiry, not just that a flag exists.</li>
+      <li><strong>You traced the wrong user.</strong> A log is written for the user whose action triggered execution. If a Process Builder, scheduled job, or integration user performed the DML, tracing yourself produces nothing. For integrations, trace the API user.</li>
+      <li><strong>The org hit its log allocation.</strong> Salesforce caps total retained debug logs at <strong>1,000 MB</strong>. Once full, you cannot add or edit trace flags until logs are deleted — and the failure is not obvious from the Setup UI.</li>
+      <li><strong>Trace flags were auto-disabled.</strong> Generating more than 1,000 MB of logs in a 15-minute window disables your trace flags automatically. Verbose logging on a busy production org triggers this quickly.</li>
+      <li><strong>The log expired before you opened it.</strong> System debug logs are retained for <strong>24 hours</strong>; logs from monitoring are kept seven days. A Friday afternoon bug investigated on Monday has no log left.</li>
+    </ul>
+    <p>The 1,000 MB ceiling deserves attention on shared sandboxes, where several developers each leave verbose trace flags running. One person's <code>FINEST</code> trace on an active user can exhaust the allocation and silently stop logging for everyone.</p>
+
+    <h3>Scope the trace flag narrowly</h3>
+    <p>Trace flags are not limited to users. You can also set them on a specific Apex class or trigger, which is the better choice when you know roughly where the problem lives. A class-scoped flag logs that class at high verbosity while everything else stays quiet — you get the detail you need without approaching the 20 MB cap or the org-wide allocation.</p>
     <p>ForceLens's <strong>Smart Capture</strong> collapses this whole step: one click creates the trace flag, watches for new logs, and opens them analyzed. <a href="/#sandbox">See how Smart Capture works</a>.</p>
 
     <h2>Step 2 — Choose log levels deliberately</h2>
@@ -132,6 +149,28 @@
     </table>
     </div>
     <p>Higher levels log more. <code>FINEST</code> on ApexCode includes every statement and variable assignment; on a big transaction that alone can blow the 20 MB cap.</p>
+
+    <h3>What each category actually controls</h3>
+    <p>Choosing levels blindly is why logs either truncate or omit the one line you needed. Each category governs a distinct family of events:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Category</th><th>Controls</th><th>Raise it when</th></tr></thead>
+      <tbody>
+        <tr><td><strong>ApexCode</strong></td><td>Code units, method entry/exit, <code>System.debug</code>, exceptions, heap allocation</td><td>You need to see execution flow or variable state</td></tr>
+        <tr><td><strong>ApexProfiling</strong></td><td>Cumulative limit usage and per-namespace profiling</td><td>Investigating CPU or governor limits</td></tr>
+        <tr><td><strong>Database</strong></td><td>SOQL and SOSL text, row counts, DML operations</td><td>Chasing query counts or slow queries</td></tr>
+        <tr><td><strong>Workflow</strong></td><td>Workflow rules, field updates, and Flow element execution</td><td>Debugging Flows or declarative automation</td></tr>
+        <tr><td><strong>Validation</strong></td><td>Validation rule evaluation and formula results</td><td>A save fails with no Apex error</td></tr>
+        <tr><td><strong>System</strong></td><td>Platform-level calls and system method entry</td><td>Rarely — usually noise</td></tr>
+        <tr><td><strong>Callout</strong></td><td>HTTP request and response detail</td><td>Debugging integrations</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The most common mistake is raising everything to <code>FINEST</code> in the hope of catching the problem. That reliably produces a truncated log, and truncation removes lines from the <em>middle</em> — so the evidence you needed is precisely what gets dropped. Raise one category at a time, based on what you are actually investigating.</p>
+    <p>Note that <strong>Workflow</strong> is the category that governs Flow logging, which is not obvious from the name. If you are debugging a record-triggered Flow and seeing nothing, that is almost always why — see <a href="/salesforce-flow-debugging">debugging Salesforce Flows</a>.</p>
+
+    <h3>The levels, in order</h3>
+    <p>Each level includes everything below it: <code>NONE</code>, <code>ERROR</code>, <code>WARN</code>, <code>INFO</code>, <code>DEBUG</code>, <code>FINE</code>, <code>FINER</code>, <code>FINEST</code>. The jump that matters most is <code>FINE</code> to <code>FINEST</code> on ApexCode — <code>FINEST</code> adds statement-level and variable-assignment logging, which is where log size explodes. <code>FINE</code> gives you code units, method calls and debug output, and is sufficient for most investigations. Reach for <code>FINEST</code> only when you specifically need to see variable values line by line, and scope it to a single class when you do.</p>
 
     <h2>Step 3 — Understand the anatomy of a log line</h2>
     <code class="guide-code">14:23:07.0 (5348351)|SOQL_EXECUTE_BEGIN|[12]|Aggregations:0|SELECT Id, Name FROM Account WHERE Id IN :accountIds</code>
@@ -159,13 +198,83 @@
     </table>
     </div>
 
-    <h2>Step 5 — Common gotchas</h2>
+    <h2>Step 5 — Read a real log, top to bottom</h2>
+    <p>Events in isolation are less useful than the shape they form. Here is an abbreviated log from a failing Account update, with the reasoning at each stage:</p>
+    <code class="guide-code">14:23:07.0 (0)|EXECUTION_STARTED
+14:23:07.0 (1204)|CODE_UNIT_STARTED|[EXTERNAL]|TRIGGERS
+14:23:07.0 (2891)|CODE_UNIT_STARTED|[EXTERNAL]|AccountTrigger on Account trigger event BeforeUpdate
+14:23:07.0 (18402)|SOQL_EXECUTE_BEGIN|[15]|Aggregations:0|SELECT Id, Name FROM Contact WHERE AccountId = :accountId
+14:23:07.0 (24913)|SOQL_EXECUTE_END|[15]|Rows:3
+14:23:07.0 (31002)|SOQL_EXECUTE_BEGIN|[15]|Aggregations:0|SELECT Id, Name FROM Contact WHERE AccountId = :accountId
+14:23:07.0 (37441)|SOQL_EXECUTE_END|[15]|Rows:5</code>
+    <p>Two observations already. The query at <strong>line 15 repeats</strong> — same line, same text, different results — which means it sits inside a loop. And the transaction is only 37 microseconds in, so this is early; whatever fails later is likely a consequence of this pattern rather than an independent bug.</p>
+    <code class="guide-code">14:23:09.2 (2104883201)|LIMIT_USAGE|[15]|SOQL|101|100
+14:23:09.2 (2104901337)|EXCEPTION_THROWN|[15]|System.LimitException: Too many SOQL queries: 101
+14:23:09.2 (2105002914)|FATAL_ERROR|System.LimitException: Too many SOQL queries: 101
+
+Class.AccountService.enrichContacts: line 15, column 1
+Class.AccountService.processAccounts: line 42, column 1
+Trigger.AccountTrigger: line 8, column 1</code>
+    <p>The confirmation, and the fix location. Read the stack trace <strong>bottom-up</strong>: the trigger called <code>processAccounts</code> at line 42, which called <code>enrichContacts</code>, which issued the query at line 15. The loop is at line 42; the query is at line 15. You need to change both — hoist the query out of the caller's loop.</p>
+    <p>Finally, the summary block:</p>
+    <code class="guide-code">14:23:09.2 (2105110002)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 101 out of 100 ******* CLOSE TO LIMIT
+  Number of query rows: 412 out of 50000
+  Number of DML statements: 1 out of 150
+  Maximum CPU time: 2104 out of 10000
+14:23:09.2 (2105180331)|EXECUTION_FINISHED</code>
+    <p>Note what this rules out. Query rows, DML and CPU are all comfortable — so this is purely a repetition problem, not a volume or performance one. Had CPU also been near its cap, the diagnosis would shift toward the loop itself rather than only the query inside it.</p>
+
+    <h3>The three questions to ask of any log</h3>
+    <p>Whatever the symptom, the same sequence gets you there fastest:</p>
+    <ol>
+      <li><strong>What failed?</strong> Search <code>FATAL_ERROR</code> first — that is the exception that actually rolled the transaction back. <code>EXCEPTION_THROWN</code> may appear several times for exceptions that were caught and handled; those are noise.</li>
+      <li><strong>Where did it fail?</strong> Read the stack trace bottom-up to get from the entry point to the failing line.</li>
+      <li><strong>Why did it get there?</strong> Check <code>LIMIT_USAGE_FOR_NS</code> to see which resources were near their caps, and scan <code>CODE_UNIT_STARTED</code> events for the same trigger appearing more than once — the signature of <a href="/salesforce-order-of-execution">recursion</a>.</li>
+    </ol>
+
+    <h3>Searches worth memorising</h3>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Search for</th><th>Finds</th></tr></thead>
+      <tbody>
+        <tr><td><code>FATAL_ERROR</code></td><td>The exception that ended the transaction</td></tr>
+        <tr><td><code>LIMIT_USAGE_FOR_NS</code></td><td>Final governor limit consumption</td></tr>
+        <tr><td><code>CODE_UNIT_STARTED</code></td><td>The execution skeleton — every trigger, class and Flow</td></tr>
+        <tr><td><code>USER_DEBUG</code></td><td>Your own <code>System.debug()</code> output</td></tr>
+        <tr><td><code>SOQL_EXECUTE_BEGIN</code></td><td>Every query, with its line number and text</td></tr>
+        <tr><td><code>FLOW_ELEMENT_BEGIN</code></td><td>Flow execution, element by element</td></tr>
+        <tr><td><code>MAXIMUM DEBUG LOG SIZE</code></td><td>Whether the log was truncated (and is lying to you)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>That last one matters more than it looks. A truncated log has <em>missing lines in the middle</em>, so an event you cannot find may have happened and simply not been written. Always check for truncation before concluding something did not run.</p>
+
+    <h2>Step 6 — Common gotchas</h2>
     <ul>
       <li><strong>"MAXIMUM DEBUG LOG SIZE REACHED".</strong> The log hit 20 MB and lines were skipped. Lower noisy categories or scope tracing to one class.</li>
       <li><strong>The error isn't in this log.</strong> Async work (future methods, queueables, batch chunks) runs in separate transactions with separate logs.</li>
       <li><strong>Managed package code is hidden.</strong> Other namespaces log at their own levels and much of their internals won't appear.</li>
       <li><strong>Recursion reads as duplication.</strong> If a trigger updates its own object, you'll see the same trigger's CODE_UNIT twice. That's re-entry, not a duplicate log.</li>
+      <li><strong>Timestamps repeat, elapsed counters don't.</strong> The wall-clock portion has limited resolution, so many lines share <code>14:23:07.0</code>. Always measure with the nanosecond counter in parentheses, never the timestamp.</li>
+      <li><strong>A caught exception is not the failure.</strong> <code>EXCEPTION_THROWN</code> appears for exceptions your code handled successfully. Only <code>FATAL_ERROR</code> ended the transaction.</li>
     </ul>
+
+    <h3>When the log does not contain your error</h3>
+    <p>Three situations produce a log that looks healthy while the user reports a failure:</p>
+    <p><strong>The work happened asynchronously.</strong> Future methods, Queueables, and each Batch Apex chunk run as separate transactions with their own logs, written when the job executes rather than when it was enqueued. The synchronous log ends cleanly because the failure had not happened yet. Look for a later log with the same user and a timestamp after the original.</p>
+    <p><strong>A platform event or trigger ran as a different user.</strong> Automation invoked by platform events or certain system contexts executes as the Automated Process user, which needs its own trace flag.</p>
+    <p><strong>The transaction never reached your code.</strong> A validation rule or required-field error rejects the save before Apex runs. These surface in the UI but produce little or no Apex logging — check <code>VALIDATION_RULE</code> events, and confirm the log contains a <code>CODE_UNIT_STARTED</code> for your trigger at all.</p>
+
+    <h2>Making your own debug output findable</h2>
+    <p>Most debugging still comes down to <code>System.debug()</code>, and a few habits make the difference between output you can find instantly and output buried in 40,000 lines.</p>
+    <p><strong>Use a logging level.</strong> <code>System.debug(LoggingLevel.ERROR, ...)</code> keeps your statements visible even when ApexCode is set low, and lets you filter to just your own output:</p>
+    <code class="guide-code">System.debug(LoggingLevel.ERROR, '>>> ACCT_SYNC | accounts=' + accounts.size()
+    + ' | cpu=' + Limits.getCpuTime()
+    + ' | queries=' + Limits.getQueries());</code>
+    <p><strong>Prefix with a searchable marker.</strong> A distinctive token such as <code>&gt;&gt;&gt;</code> or a feature name turns finding your output into a single search, rather than scrolling past every managed package's debug lines.</p>
+    <p><strong>Log limits alongside values.</strong> Including <code>Limits.getCpuTime()</code> and <code>Limits.getQueries()</code> in the same statement means one log tells you both what the data was and what it cost — usually removing the need for a second reproduction.</p>
+    <p><strong>Log collections, not just scalars.</strong> Apex serialises collections readably, so <code>System.debug(myMap)</code> prints keys and values. For sObjects, log the specific fields you care about — a full sObject dump is verbose enough to push a log toward truncation on its own.</p>
 
     <h2>Doing all of this in one click</h2>
     <p>Everything above is what a <a href="/salesforce-debug-log-analyzer">debug log analyzer</a> automates. ForceLens parses the log in your browser and gives you the execution tree, order of execution, SOQL/DML aggregation, error surfacing and limits report as clickable tabs — free, with nothing uploaded anywhere.</p>
@@ -177,6 +286,10 @@
       <details><summary>Why is my debug log truncated?</summary><p>Debug logs are capped at 20 MB per transaction. When a log exceeds the cap, Salesforce skips lines (you'll see "*** Skipped" markers). Reduce log levels for noisy categories like System and Validation, or scope tracing to a specific class.</p></details>
       <details><summary>What log level should I use for Apex debugging?</summary><p>Start with ApexCode=FINEST, ApexProfiling=INFO, Database=INFO, System=DEBUG. Raise Database to FINEST for SOQL investigations; lower ApexCode if the log truncates.</p></details>
       <details><summary>Where are debug logs stored and for how long?</summary><p>Setup → Debug Logs. System-generated logs are retained for 24 hours and the org caps total log storage at 1,000 MB — older logs are deleted as new ones arrive, so save anything important promptly (ForceLens keeps your last 200 analyzed sessions locally).</p></details>
+      <details><summary>Why is no debug log being generated at all?</summary><p>Usually one of five things: the trace flag expired; you traced the wrong user (the log follows whoever triggered execution, which may be an integration or Automated Process user); the org's 1,000 MB log allocation is full, which blocks new trace flags; trace flags were auto-disabled after generating more than 1,000 MB in a 15-minute window; or the log already expired after 24 hours.</p></details>
+      <details><summary>What is the difference between EXCEPTION_THROWN and FATAL_ERROR?</summary><p><code>EXCEPTION_THROWN</code> records every exception raised, including ones your code caught and handled — these are often normal. <code>FATAL_ERROR</code> is the unhandled exception that actually rolled the transaction back. When debugging a failure, search <code>FATAL_ERROR</code> first.</p></details>
+      <details><summary>How do I read the stack trace in a debug log?</summary><p>Bottom-up. The last line is the entry point (usually the trigger), and the first line is where the exception was thrown. Each line gives class, method and line number, so you can trace the path from entry point to failure — and the fix often belongs in a caller rather than at the throwing line.</p></details>
+      <details><summary>Why does the error not appear in my debug log?</summary><p>Most often the work ran asynchronously — future methods, Queueables and each Batch Apex chunk are separate transactions with their own logs, written when the job runs rather than when it was enqueued. Also check whether the log was truncated at 20 MB, or whether a validation rule rejected the save before Apex executed at all.</p></details>
     </div>
 
     <div class="guide-cta">
