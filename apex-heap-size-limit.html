@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_limits.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,18 @@
           { "@type": "Question", "name": "What is the Apex heap size limit in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "6 MB for synchronous transactions and 12 MB for asynchronous ones (batch, future, queueable). The heap is the memory holding your variables, collections, sObjects and strings during a transaction. Exceeding it throws the uncatchable 'Apex heap size too large' limit exception." } },
           { "@type": "Question", "name": "What fills up the Apex heap?", "acceptedAnswer": { "@type": "Answer", "text": "Large query results held in lists, big strings built by concatenation, JSON serialization/deserialization of large payloads, Blob/attachment bodies, and collections that keep growing across loop iterations. Debug log generation itself doesn't count, but everything your variables reference does." } },
           { "@type": "Question", "name": "How do I check heap usage in Apex?", "acceptedAnswer": { "@type": "Answer", "text": "Call Limits.getHeapSize() and Limits.getLimitHeapSize() at checkpoints and log them with System.debug. In debug logs, the LIMIT_USAGE_FOR_NS section reports 'Maximum heap size', and with ApexCode at FINEST the HEAP_ALLOCATE events show individual allocations." } },
-          { "@type": "Question", "name": "How do I fix heap size errors with large query results?", "acceptedAnswer": { "@type": "Answer", "text": "Use a SOQL for-loop (for (Account a : [SELECT ...]) { }) so records are processed in 200-record chunks instead of materializing the whole list, query only the fields you need, or move the work to Batch Apex where each execute() gets a fresh transaction and the async 12 MB budget." } }
+          { "@type": "Question", "name": "How do I fix heap size errors with large query results?", "acceptedAnswer": { "@type": "Answer", "text": "Use a SOQL for-loop (for (Account a : [SELECT ...]) { }) so records are processed in 200-record chunks instead of materializing the whole list, query only the fields you need, or move the work to Batch Apex where each execute() gets a fresh transaction and the async 12 MB budget." } },
+          { "@type": "Question", "name": "Is Apex heap size cumulative across the whole transaction?", "acceptedAnswer": { "@type": "Answer", "text": "No. Heap is a high-water mark: Salesforce measures the maximum memory referenced at any single instant, not the sum of all allocations. Allocating 5 MB, releasing it, then allocating another 5 MB peaks at 5 MB and passes, while holding both simultaneously peaks at 10 MB and fails. The goal is holding less at once, not allocating less overall." } },
+          { "@type": "Question", "name": "What is the difference between a SOQL for-loop and a list assignment?", "acceptedAnswer": { "@type": "Answer", "text": "A list assignment loads every matching record into memory at once. A SOQL for-loop retrieves records in internal 200-record chunks and discards each chunk as it proceeds, so peak heap stays flat regardless of how many rows match. The tradeoff is that the collection never exists as a whole, so you cannot index into it or reuse it after the loop." } },
+          { "@type": "Question", "name": "Why does my Batch Apex job fail partway through with a heap error?", "acceptedAnswer": { "@type": "Answer", "text": "Almost always Database.Stateful retaining a growing collection. Stateful instance variables persist across every execute() call, so a list that keeps being appended to accumulates across the entire batch run and eventually exceeds the heap. Store aggregates such as totals and counters statefully, never lists of records." } },
+          { "@type": "Question", "name": "Does setting an Apex variable to null actually free heap?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, when it removes the last reference to the data. The memory becomes eligible for reclamation rather than being freed instantly, but it reliably reduces peak heap when two large structures would otherwise overlap within one method. Use it deliberately at that boundary rather than as a habit everywhere." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -102,6 +106,26 @@
     <p>Every object your Apex code creates or references during a transaction lives on the heap: sObject lists from queries, maps you build, strings you concatenate, deserialized JSON structures, Blob contents. When the total exceeds the limit, Salesforce throws <code>System.LimitException: Apex heap size too large</code> — which, like all limit exceptions, <strong>cannot be caught</strong>.</p>
     <p>Heap is shared across all namespaces in the transaction (like <a href="/salesforce-cpu-time-limit-exceeded">CPU time</a>), so managed package allocations count against you too. See the full picture in <a href="/salesforce-governor-limits-explained">governor limits explained</a>.</p>
 
+    <h3>Heap is a high-water mark, not a running total</h3>
+    <p>This is the single most misunderstood property of the heap limit, and it changes how you debug. Salesforce measures the <strong>maximum amount of memory referenced at any one instant</strong> during the transaction — not the sum of everything you ever allocated.</p>
+    <p>Allocating 5 MB, letting it go out of scope, then allocating another 5 MB does not use 10 MB of heap. It peaks at 5 MB and passes. But holding both at the same time peaks at 10 MB and fails. The practical consequence: <strong>you do not need to allocate less overall — you need to hold less simultaneously.</strong> Almost every fix in this guide is an application of that one idea.</p>
+    <p>Memory is reclaimed when nothing references it any more. A variable declared inside a loop body becomes eligible for collection on the next iteration; a variable declared outside the loop stays alive for the whole loop. Where you declare something matters as much as how big it is.</p>
+
+    <h3>Synchronous versus asynchronous budgets</h3>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Context</th><th>Heap limit</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Synchronous (trigger, controller, VF)</td><td>6 MB</td><td>Shared across all namespaces</td></tr>
+        <tr><td>Future methods</td><td>12 MB</td><td>Fresh heap per invocation</td></tr>
+        <tr><td>Queueable</td><td>12 MB</td><td>Fresh heap per job</td></tr>
+        <tr><td>Batch Apex <code>execute()</code></td><td>12 MB</td><td>Fresh heap per scope chunk</td></tr>
+        <tr><td>Batch Apex with <code>Database.Stateful</code></td><td>12 MB</td><td>Retained instance variables count against every chunk</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>That final row causes real production incidents. <code>Database.Stateful</code> preserves instance variables between <code>execute()</code> calls, so a collection you keep appending to grows across the entire batch run. The job processes the first several thousand records happily and then dies partway through — which reads like a data problem but is actually accumulated state. If you need stateful aggregation, store totals and counters, never lists of records.</p>
+
     <h2>The usual suspects</h2>
     <ol>
       <li><strong>Materializing big query results.</strong> <code>List&lt;Account&gt; all = [SELECT ... FROM Account]</code> on a large object loads every record and field into memory at once.</li>
@@ -111,6 +135,56 @@
       <li><strong>Blobs and attachments.</strong> Reading file bodies into Apex is the fastest way to blow 6 MB.</li>
       <li><strong>Collections that never shrink</strong> — accumulating results across iterations instead of processing and clearing.</li>
     </ol>
+
+    <h3>1. Materializing a large query result</h3>
+    <p>The most common cause by a wide margin. A plain list assignment pulls every matching record and every selected field into memory simultaneously:</p>
+    <code class="guide-code">// ANTI-PATTERN: 50,000 records held at once
+List&lt;Account&gt; accounts = [SELECT Id, Name, Description__c FROM Account WHERE Active__c = true];
+for (Account a : accounts) {
+    process(a);
+}</code>
+    <p>A SOQL for-loop looks almost identical but behaves completely differently. Salesforce retrieves records in internal chunks of 200 and discards each chunk as it moves on, so peak heap stays flat regardless of how many records match:</p>
+    <code class="guide-code">// CORRECT: constant heap, any result size
+for (Account a : [SELECT Id, Name, Description__c FROM Account WHERE Active__c = true]) {
+    process(a);
+}</code>
+    <p>This is the highest-value change on the page. It is a one-line edit, requires no restructuring, and often takes a transaction from failing to using a small fraction of the budget. The constraint: you cannot index into the collection or use it after the loop, because it never exists as a whole.</p>
+
+    <h3>2. Selecting fields you never read</h3>
+    <p>Heap cost scales with the width of each record, not just the row count. Long text areas are the worst offenders — a single <code>Description</code> or rich text field can carry 32 KB to 130 KB per record. Ten thousand records with one unused long text field is potentially hundreds of megabytes of data you are paying to hold and never look at.</p>
+    <p>Never use a broad field list out of convenience. Select exactly the fields the code touches, and audit queries in any class throwing heap errors — removing two unused long text fields frequently resolves the error with no logic change at all.</p>
+
+    <h3>3. String building in loops</h3>
+    <p>Apex strings are immutable. Every <code>+=</code> allocates a new string holding everything accumulated so far, leaving the previous one on the heap until collection catches up:</p>
+    <code class="guide-code">// ANTI-PATTERN: quadratic memory growth
+String csv = '';
+for (Account a : accounts) {
+    csv += a.Name + ',' + a.Id + '\n';   // new allocation every iteration
+}</code>
+    <code class="guide-code">// CORRECT: one allocation at the end
+List&lt;String&gt; rows = new List&lt;String&gt;();
+for (Account a : accounts) {
+    rows.add(a.Name + ',' + a.Id);
+}
+String csv = String.join(rows, '\n');</code>
+    <p>Because this pattern burns CPU quadratically as well, it commonly triggers <a href="/salesforce-cpu-time-limit-exceeded">the CPU time limit</a> in the same transaction. If you are hitting both errors at once, string building in a loop is the first thing to look for.</p>
+
+    <h3>4. JSON serialization doubling your data</h3>
+    <p><code>JSON.serialize()</code> holds the source object graph and the resulting string on the heap simultaneously, so peak usage is roughly double the payload. Deserializing into an untyped <code>Map&lt;String, Object&gt;</code> is worse still — boxed objects and map overhead can inflate a payload several times over. Define a typed wrapper class containing only the fields you actually use:</p>
+    <code class="guide-code">// Typed deserialization: only the fields you need reach the heap
+public class OrderSummary {
+    public String orderId;
+    public Decimal total;
+}
+List&lt;OrderSummary&gt; orders =
+    (List&lt;OrderSummary&gt;) JSON.deserialize(response.getBody(), List&lt;OrderSummary&gt;.class);</code>
+
+    <h3>5. Releasing references explicitly</h3>
+    <p>When a large structure is genuinely finished with but its variable remains in scope, setting it to <code>null</code> makes the memory eligible for reclamation before the transaction ends:</p>
+    <code class="guide-code">Map&lt;Id, List&lt;Contact&gt;&gt; contactsByAccount = buildLargeMap();
+processContacts(contactsByAccount);
+contactsByAccount = null;   // release before the next heavy operation</code>
+    <p>Use this deliberately rather than everywhere. It matters when two large structures would otherwise overlap in a long method — which, given heap is a high-water mark, is exactly the situation that causes the error.</p>
 
     <h2>Finding heap hotspots in the debug log</h2>
     <p>Three techniques, cheapest first:</p>
@@ -126,6 +200,22 @@ System.debug('Heap after transform: ' + Limits.getHeapSize());</code>
     <h3>3. HEAP_ALLOCATE events</h3>
     <p>With ApexCode at <code>FINEST</code>, the log emits <code>HEAP_ALLOCATE</code> events with byte counts and line numbers. Extremely detailed but extremely verbose — combine with a class-scoped trace flag (see <a href="/salesforce-debug-log-levels">debug log levels</a>) to keep the log under the 20 MB cap.</p>
 
+    <h3>Bisecting to the exact line</h3>
+    <p>Checkpoint logging is more powerful than it first appears if you use it as a binary search rather than sprinkling debug statements at random. The procedure reliably isolates a heap spike in four or five iterations:</p>
+    <ol>
+      <li>Place a checkpoint at the start and end of the failing method. Confirm the jump between them accounts for most of the heap.</li>
+      <li>Add one checkpoint at the midpoint of that method. The spike is in whichever half shows the larger increase.</li>
+      <li>Bisect that half again. Repeat until you have narrowed it to a few statements.</li>
+      <li>Log both <code>Limits.getHeapSize()</code> and the size of the suspect collection together — <code>myList.size()</code> alongside the heap figure tells you whether the growth is row count or row width.</li>
+    </ol>
+    <code class="guide-code">System.debug(LoggingLevel.WARN, 'CHECKPOINT A: '
+    + Limits.getHeapSize() + ' / ' + Limits.getLimitHeapSize()
+    + ' | rows=' + records.size());</code>
+    <p>Use <code>LoggingLevel.WARN</code> so your checkpoints remain visible even when <code>ApexCode</code> is set low, and stay easy to locate in a large log. In ForceLens the <strong>Apex Debug</strong> tab isolates these <code>USER_DEBUG</code> lines from everything else, so the checkpoint sequence reads as a clean list rather than something you scroll to find.</p>
+
+    <h3>Reading heap growth across a batch job</h3>
+    <p>For Batch Apex, capture logs across several <code>execute()</code> chunks rather than one. Heap that stays flat chunk to chunk points at a single oversized operation; heap that climbs steadily points at retained state — almost always <code>Database.Stateful</code> holding a collection that grows. The distinction determines the fix, and one log cannot show it to you.</p>
+
     <h2>Fixes that work</h2>
     <ul>
       <li><strong>SOQL for-loops.</strong> <code>for (Account a : [SELECT Id, Name FROM Account WHERE ...]) { ... }</code> processes records in 200-record batches internally instead of holding the full list. The single biggest heap fix.</li>
@@ -137,12 +227,71 @@ System.debug('Heap after transform: ' + Limits.getHeapSize());</code>
       <li><strong>Visualforce note:</strong> mark controller variables you don't need across postbacks as <code>transient</code> to keep them out of the serialized view state.</li>
     </ul>
 
+    <h3>Which fix to reach for first</h3>
+    <p>These differ enormously in effort and payoff. Work down the table — the top two rows resolve the majority of heap errors and are near-trivial edits:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Symptom</th><th>Fix</th><th>Effort</th><th>Typical impact</th></tr></thead>
+      <tbody>
+        <tr><td>Heap spikes right after a query</td><td>Convert to SOQL for-loop</td><td>One line</td><td>Very high</td></tr>
+        <tr><td>Few records but heap still high</td><td>Remove unused long text fields</td><td>One line</td><td>High</td></tr>
+        <tr><td>Heap climbs steadily inside a loop</td><td><code>String.join</code> instead of <code>+=</code></td><td>Small</td><td>High</td></tr>
+        <tr><td>Spike around callout handling</td><td>Typed JSON deserialization</td><td>Medium</td><td>Medium</td></tr>
+        <tr><td>Batch job fails partway through</td><td>Remove collections from <code>Database.Stateful</code></td><td>Medium</td><td>High</td></tr>
+        <tr><td>Genuinely need all the data</td><td>Move to Batch Apex</td><td>Large</td><td>Definitive</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>When Batch Apex is the right answer</h3>
+    <p>If a transaction genuinely must process more data than fits in 6 MB, stop optimising and change the execution model. Batch Apex gives each <code>execute()</code> call a completely fresh 12 MB heap, so total volume becomes irrelevant:</p>
+    <code class="guide-code">public class AccountCleanupBatch implements Database.Batchable&lt;SObject&gt; {
+    public Database.QueryLocator start(Database.BatchableContext bc) {
+        // QueryLocator streams up to 50 million records
+        return Database.getQueryLocator([SELECT Id, Name FROM Account WHERE Active__c = true]);
+    }
+
+    public void execute(Database.BatchableContext bc, List&lt;Account&gt; scope) {
+        // fresh 12 MB heap for every chunk
+        for (Account a : scope) { process(a); }
+    }
+
+    public void finish(Database.BatchableContext bc) { }
+}
+
+// Reduce scope size if a chunk still exceeds the heap:
+Database.executeBatch(new AccountCleanupBatch(), 50);</code>
+    <p>The scope parameter defaults to 200. Lowering it to 50 or even 10 is the standard remedy when individual records are wide — wide records are precisely the case where the default chunk size is too aggressive.</p>
+
+    <h2>Preventing heap errors before they ship</h2>
+    <p><strong>Assert on heap in your tests.</strong> Heap problems are trivially catchable in CI if you look for them, and a single assertion prevents the regression permanently:</p>
+    <code class="guide-code">@isTest
+static void bulkProcessingStaysWithinHeap() {
+    List&lt;Account&gt; accounts = TestDataFactory.createAccounts(200);
+    insert accounts;
+
+    Test.startTest();
+    AccountService.processAll();
+    Integer peakHeap = Limits.getHeapSize();
+    Test.stopTest();
+
+    System.assert(peakHeap &lt; Limits.getLimitHeapSize() / 2,
+        'Heap exceeded 50% of budget: ' + peakHeap);
+}</code>
+    <p>Asserting against half the budget rather than the full limit is deliberate. A transaction at 90% passes today and fails as soon as data grows or a managed package is installed alongside it.</p>
+    <p><strong>Default to SOQL for-loops.</strong> Treat <code>List&lt;X&gt; y = [SELECT ...]</code> as the exception requiring justification, not the default. If you do not need the collection after iterating, there is no reason to materialize it.</p>
+    <p><strong>Remember the namespace sharing.</strong> Heap is shared across managed packages, so your code being comfortable in isolation does not mean it is safe. Leaving headroom is not defensive over-engineering — it is the only way to survive an org where you do not control everything that runs.</p>
+
     <h2 id="faq">Frequently asked questions</h2>
     <div class="guide-faq">
       <details><summary>What is the Apex heap size limit?</summary><p>6 MB per synchronous transaction, 12 MB for asynchronous (batch, future, queueable). Exceeding it throws an uncatchable limit exception.</p></details>
       <details><summary>What fills up the heap?</summary><p>Query results held in lists, big strings, JSON serialization of large payloads, Blob/file bodies, and ever-growing collections — including allocations made by managed packages in your transaction.</p></details>
       <details><summary>How do I check heap usage?</summary><p><code>Limits.getHeapSize()</code> checkpoints logged with System.debug; the "Maximum heap size" line in LIMIT_USAGE_FOR_NS; and HEAP_ALLOCATE events at ApexCode FINEST.</p></details>
       <details><summary>How do I fix heap errors from large queries?</summary><p>Use SOQL for-loops so records process in chunks, query fewer fields, or move to Batch Apex where each chunk gets a fresh 12 MB heap.</p></details>
+      <details><summary>Is heap size cumulative across the whole transaction?</summary><p>No — it is a high-water mark. Salesforce measures the maximum memory referenced at any single instant, not the sum of all allocations. Allocating 5 MB, releasing it, then allocating another 5 MB peaks at 5 MB and passes. Holding both simultaneously peaks at 10 MB and fails. The goal is holding less at once, not allocating less overall.</p></details>
+      <details><summary>What is the difference between a SOQL for-loop and a list assignment?</summary><p>A list assignment loads every matching record into memory at once. A SOQL for-loop retrieves records in internal 200-record chunks and discards each chunk as it proceeds, so peak heap stays flat no matter how many rows match. The tradeoff is that the collection never exists as a whole, so you cannot index into it or reuse it after the loop.</p></details>
+      <details><summary>Why does my Batch Apex job fail partway through?</summary><p>Almost always <code>Database.Stateful</code> retaining a growing collection. Stateful instance variables persist across every <code>execute()</code> call, so a list you keep appending to accumulates across the entire run and eventually exceeds the heap. Store aggregates such as totals and counters statefully — never lists of records.</p></details>
+      <details><summary>Does setting a variable to null actually free heap?</summary><p>Yes, when it removes the last reference to the data. The memory becomes eligible for reclamation rather than being freed instantly, but it reliably reduces the peak when two large structures would otherwise overlap in one method. Use it deliberately at that boundary, not as a habit everywhere.</p></details>
     </div>
 
     <div class="guide-cta">

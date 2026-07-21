@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_limits.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,19 @@
           { "@type": "Question", "name": "What are governor limits in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "Governor limits are per-transaction resource caps Salesforce enforces because orgs share multitenant infrastructure. They cap SOQL queries (100 sync), DML statements (150), CPU time (10 seconds sync), heap size (6 MB sync), callouts (100) and more. Exceeding one throws an uncatchable limit exception and rolls back the transaction." } },
           { "@type": "Question", "name": "How do I see governor limit usage in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Look for the LIMIT_USAGE_FOR_NS event near the end of the log. It lists consumption per namespace: number of SOQL queries, query rows, DML statements, CPU time, and heap size against each maximum. Tools like ForceLens render this as a visual limits dashboard." } },
           { "@type": "Question", "name": "Do managed packages get their own governor limits?", "acceptedAnswer": { "@type": "Answer", "text": "Certified managed packages get their own separate set of most per-namespace limits (like SOQL and DML counts), which is why LIMIT_USAGE_FOR_NS reports per namespace. However, some limits — notably CPU time and heap — are shared across all namespaces in the transaction." } },
-          { "@type": "Question", "name": "How can I check limits from Apex code?", "acceptedAnswer": { "@type": "Answer", "text": "Use the System.Limits class — for example Limits.getQueries() vs Limits.getLimitQueries(), Limits.getCpuTime(), Limits.getHeapSize() — to read current consumption at runtime and defensively branch before hitting a cap." } }
+          { "@type": "Question", "name": "How can I check limits from Apex code?", "acceptedAnswer": { "@type": "Answer", "text": "Use the System.Limits class — for example Limits.getQueries() vs Limits.getLimitQueries(), Limits.getCpuTime(), Limits.getHeapSize() — to read current consumption at runtime and defensively branch before hitting a cap." } },
+          { "@type": "Question", "name": "Can I increase or buy my way past Salesforce governor limits?", "acceptedAnswer": { "@type": "Answer", "text": "No. Governor limits exist to protect the shared multitenant infrastructure that other orgs run on, so they are not a paid upgrade tier. The remedy is always architectural: bulkify code, move work to asynchronous contexts where each job receives a fresh budget, or use Batch Apex for genuine high-volume processing." } },
+          { "@type": "Question", "name": "When do Salesforce governor limits reset?", "acceptedAnswer": { "@type": "Answer", "text": "At each transaction boundary: a user action or API call, each @future method invocation, each Queueable execute(), each Batch Apex execute() chunk, each scheduled Apex run, and the code between Test.startTest() and Test.stopTest(). Calling another class, entering another trigger, or invoking a Flow does not reset limits." } },
+          { "@type": "Question", "name": "Why did my org start hitting governor limits after installing a managed package?", "acceptedAnswer": { "@type": "Answer", "text": "Everything triggered by a single save shares one budget. A managed package that adds triggers or Flows to an object you already automate consumes CPU time and heap from the same allocation, because those two limits are shared across all namespaces even though the debug log reports them per namespace. Transactions previously running at 70% of a limit can cross it with no change to your own code." } },
+          { "@type": "Question", "name": "Does one DML statement on 200 records count as 1 or 200?", "acceptedAnswer": { "@type": "Answer", "text": "One statement and 200 rows. DML has two separate limits: 150 statements and 10,000 rows per transaction. A collection DML performed outside a loop counts as a single statement regardless of record count, which is why it can update thousands of records while the same work done record-by-record fails at 151 statements." } },
+          { "@type": "Question", "name": "What is the difference between the 50,000 query row limit and the QueryLocator limit?", "acceptedAnswer": { "@type": "Answer", "text": "Regular SOQL can retrieve 50,000 rows per transaction. Database.getQueryLocator in a non-batch context returns up to 10,000 records. A QueryLocator returned from a Batch Apex start() method is the exception: it streams up to 50 million records, because each execute() chunk is processed as its own transaction with its own limits." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -105,7 +110,8 @@
       <tbody>
         <tr><td>SOQL queries issued</td><td>100</td><td>200</td></tr>
         <tr><td>Records retrieved by SOQL</td><td>50,000</td><td>50,000</td></tr>
-        <tr><td>Records retrieved by Database.getQueryLocator</td><td>10,000</td><td>10,000</td></tr>
+        <tr><td>Records retrieved by Database.getQueryLocator (non-batch)</td><td>10,000</td><td>10,000</td></tr>
+        <tr><td>Records retrieved by a Batch Apex <code>start()</code> QueryLocator</td><td colspan="2">50,000,000</td></tr>
         <tr><td>SOSL queries issued</td><td>20</td><td>20</td></tr>
         <tr><td>DML statements issued</td><td>150</td><td>150</td></tr>
         <tr><td>Records processed by DML</td><td>10,000</td><td>10,000</td></tr>
@@ -113,16 +119,78 @@
         <tr><td>Heap size</td><td>6 MB</td><td>12 MB</td></tr>
         <tr><td>HTTP callouts</td><td>100</td><td>100</td></tr>
         <tr><td>Cumulative callout timeout</td><td>120 s</td><td>120 s</td></tr>
-        <tr><td>Future method invocations</td><td>50</td><td>0 in batch/future context</td></tr>
-        <tr><td>Queueable jobs enqueued</td><td>50</td><td>1 (chaining)</td></tr>
+        <tr><td>Future method invocations</td><td>50</td><td>0 in batch/future context; 50 in Queueable</td></tr>
+        <tr><td>Queueable jobs enqueued</td><td>50</td><td>1 (from any async context)</td></tr>
         <tr><td>Maximum transaction execution time</td><td colspan="2">10 minutes</td></tr>
       </tbody>
     </table>
     </div>
     <p>Values are the standard published limits — always confirm edge cases against the official <a href="https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_apexgov.htm" target="_blank" rel="noopener noreferrer">Salesforce governor limits reference</a>, since Salesforce occasionally revises them.</p>
 
+    <h2>Find your error message</h2>
+    <p>If you arrived here from a specific failure, start with the exact text Salesforce gave you. Each row names the real cause and where the detailed fix lives:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Error message</th><th>Usual cause</th><th>Detailed guide</th></tr></thead>
+      <tbody>
+        <tr><td>Too many SOQL queries: 101</td><td>Query inside a loop, or trigger recursion</td><td><a href="/soql-query-optimization">SOQL optimization</a></td></tr>
+        <tr><td>Too many DML statements: 151</td><td>DML inside a loop</td><td>See the DML section below</td></tr>
+        <tr><td>Apex CPU time limit exceeded</td><td>Nested loops, recursion, heavy Flows</td><td><a href="/salesforce-cpu-time-limit-exceeded">CPU time limit</a></td></tr>
+        <tr><td>Apex heap size too large</td><td>Large query results held in memory</td><td><a href="/apex-heap-size-limit">Heap size limit</a></td></tr>
+        <tr><td>Too many query rows: 50001</td><td>One unbounded query on a large object</td><td><a href="/soql-query-optimization">SOQL optimization</a></td></tr>
+        <tr><td>Too many DML rows: 10001</td><td>Bulk operation exceeding the row cap</td><td>Move to Batch Apex</td></tr>
+        <tr><td>System.LimitException: Too many callouts: 101</td><td>Callout inside a loop</td><td>Batch the requests</td></tr>
+        <tr><td>Maximum trigger depth exceeded</td><td>Runaway recursion (16 levels)</td><td><a href="/salesforce-order-of-execution">Order of execution</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>One pattern connects most of these: <strong>the limit you hit is rarely the bug</strong>. Trigger recursion presents as too many SOQL queries. An unbounded query presents as a heap error. Before optimising the thing that failed, confirm it is the cause rather than the symptom.</p>
+
+    <h2>Why these limits exist</h2>
+    <p>Governor limits feel arbitrary until you understand the architecture. Salesforce is multitenant: your org shares application servers and database infrastructure with thousands of others. Without hard per-transaction caps, one org's runaway loop would degrade performance for everyone on that instance.</p>
+    <p>This explains two things developers find frustrating. First, <strong>limits are not negotiable</strong> — you cannot buy your way past the CPU limit, because it exists to protect other tenants, not to sell you an upgrade. Second, <strong>limit exceptions cannot be caught</strong>. If <code>try/catch</code> could swallow a limit exception, code could continue consuming resources after exceeding its allocation, which would defeat the purpose entirely.</p>
+    <p>The practical takeaway: treat limits as design constraints from the start rather than problems to solve later. Code written to be bulk-safe never encounters most of this page.</p>
+
     <h2>Sync vs async: which budget are you on?</h2>
     <p>A transaction is <strong>synchronous</strong> when it runs in response to a user action or API call (record save, Lightning component call, REST request). It's <strong>asynchronous</strong> — with the bigger CPU/heap budget — when it runs as batch Apex, a future method, a queueable, or scheduled Apex. This is why "move it async" is a standard fix for <a href="/salesforce-cpu-time-limit-exceeded">CPU time limit errors</a>: the same code gets six times the CPU budget and runs outside the user's save.</p>
+
+    <h3>What counts as one transaction</h3>
+    <p>Limits reset at a transaction boundary, and knowing exactly where those fall is what makes async offloading work. A new transaction begins at each of these:</p>
+    <ul>
+      <li>A user action or API call — a record save, Lightning action, REST request, or Visualforce postback.</li>
+      <li>Each <code>@future</code> method invocation.</li>
+      <li>Each Queueable job's <code>execute()</code>.</li>
+      <li>Each Batch Apex <code>execute()</code> call — every chunk gets a completely fresh set of limits.</li>
+      <li>Each scheduled Apex run.</li>
+      <li>The code between <code>Test.startTest()</code> and <code>Test.stopTest()</code> in a test method.</li>
+    </ul>
+    <p>Calling another class, entering a different trigger, or invoking a Flow does <strong>not</strong> start a new transaction. Everything triggered by one save — your triggers, other developers' triggers, record-triggered Flows, validation rules, workflow, roll-up recalculation, and managed package automation — draws from a single shared budget. This is why an org that worked fine for years starts failing after one package install.</p>
+
+    <h2>The DML limits in practice</h2>
+    <p>DML has two separate caps and they fail differently. <strong>150 statements</strong> is about how many times you call <code>insert</code>, <code>update</code>, <code>delete</code> or <code>upsert</code>. <strong>10,000 rows</strong> is about how many records those calls touch in total.</p>
+    <p>The statement limit is almost always a loop:</p>
+    <code class="guide-code">// ANTI-PATTERN: one update per record — fails at 151 records
+for (Account a : accounts) {
+    a.Status__c = 'Reviewed';
+    update a;
+}</code>
+    <code class="guide-code">// CORRECT: one statement for the whole collection
+List&lt;Account&gt; toUpdate = new List&lt;Account&gt;();
+for (Account a : accounts) {
+    a.Status__c = 'Reviewed';
+    toUpdate.add(a);
+}
+update toUpdate;</code>
+    <p>A single collection DML counts as <strong>one</strong> statement no matter how many records it contains — which is why the corrected version can update 10,000 records while the loop version dies at 151.</p>
+    <p>When part of a batch may legitimately fail, use the <code>Database</code> methods with <code>allOrNone</code> set to false so valid records still commit:</p>
+    <code class="guide-code">Database.SaveResult[] results = Database.update(toUpdate, false);
+for (Integer i = 0; i &lt; results.size(); i++) {
+    if (!results[i].isSuccess()) {
+        System.debug(LoggingLevel.ERROR, 'Row ' + i + ' failed: '
+            + results[i].getErrors()[0].getMessage());
+    }
+}</code>
+    <p>Note that DML on records that fire their own triggers consumes limits from the same transaction budget. Updating 200 Accounts whose trigger updates related Contacts spends your DML allowance twice — the visible statement and the cascade beneath it.</p>
 
     <h2>How limits appear in a debug log</h2>
     <p>Near the end of every log, the <code>LIMIT_USAGE_FOR_NS</code> event reports consumption per namespace:</p>
@@ -142,6 +210,78 @@ System.debug('CPU:  ' + Limits.getCpuTime() + ' / ' + Limits.getLimitCpuTime());
 System.debug('Heap: ' + Limits.getHeapSize() + ' / ' + Limits.getLimitHeapSize());</code>
     <p>The <code>System.Limits</code> class reads live consumption mid-transaction — useful for defensive branching in loops that might approach a cap, and for instrumenting suspect code paths with <code>USER_DEBUG</code> checkpoints you can then trace in the log.</p>
 
+    <h3>Defensive branching before a cap</h3>
+    <p>Because limit exceptions cannot be caught, the only way to handle an approaching cap is to check <em>before</em> crossing it and change course. This pattern hands the remaining work to an async job rather than failing:</p>
+    <code class="guide-code">for (Account a : accountsToProcess) {
+    // leave margin — the check itself and the enqueue both cost something
+    if (Limits.getCpuTime() &gt; Limits.getLimitCpuTime() * 0.8) {
+        System.enqueueJob(new ContinueProcessing(remainingIds));
+        break;
+    }
+    process(a);
+}</code>
+    <p>Treat this as a safety net, not a design. If a transaction regularly approaches 80% of any limit, the correct fix is to restructure it — a defensive check only converts a hard failure into partial processing, which can be harder to diagnose than the original error.</p>
+
+    <h3>Asserting on limits in tests</h3>
+    <p>Limit regressions are cheap to catch in CI and expensive to find in production. One assertion prevents the regression permanently:</p>
+    <code class="guide-code">@isTest
+static void bulkUpdateStaysWithinLimits() {
+    List&lt;Account&gt; accounts = TestDataFactory.createAccounts(200);
+
+    Test.startTest();
+    update accounts;
+    Integer queries = Limits.getQueries();
+    Integer cpu = Limits.getCpuTime();
+    Test.stopTest();
+
+    System.assert(queries &lt; 50, 'SOQL exceeded half the budget: ' + queries);
+    System.assert(cpu &lt; 5000, 'CPU exceeded half the budget: ' + cpu);
+}</code>
+    <p>Assert against half the budget rather than the actual cap. A test asserting <code>&lt; 100</code> queries passes at 99 and gives you no warning at all — the point is to fail while there is still headroom to lose.</p>
+
+    <h2>Callout and async limits</h2>
+    <p>These trip people less often but are harder to diagnose when they do, because the failure usually appears somewhere other than the code that caused it.</p>
+
+    <h3>The 120-second cumulative callout timeout</h3>
+    <p>The 100-callout cap gets the attention, but the <strong>cumulative timeout</strong> is what actually breaks integrations. All callouts in a transaction share a 120-second budget. Ten callouts to an endpoint that takes 15 seconds each will exhaust it at the eighth, and the error names the eighth callout even though the design was the problem.</p>
+    <p>Always set an explicit timeout rather than accepting the default, so one unresponsive endpoint cannot consume the entire allowance:</p>
+    <code class="guide-code">HttpRequest req = new HttpRequest();
+req.setEndpoint('callout:My_Named_Credential/api/v1/records');
+req.setMethod('GET');
+req.setTimeout(10000);   // 10s ceiling for this call
+HttpResponse res = new Http().send(req);</code>
+    <p>Where an API supports batch endpoints, one request for 200 records beats 200 requests. Where it does not, move the work to Queueable jobs so each gets its own 120-second budget.</p>
+
+    <h3>You cannot call out after DML</h3>
+    <p>A rule that surprises people regularly: once a transaction has performed uncommitted DML, callouts are blocked. The error reads <code>You have uncommitted work pending. Please commit or rollback before calling out</code>.</p>
+    <p>Salesforce enforces this because an open database transaction cannot be held while waiting on an external system. The remedy is to move the callout into an async context, which runs after the DML commits:</p>
+    <code class="guide-code">public class NotifyExternalSystem implements Queueable, Database.AllowsCallouts {
+    private Set&lt;Id&gt; recordIds;
+    public NotifyExternalSystem(Set&lt;Id&gt; recordIds) { this.recordIds = recordIds; }
+
+    public void execute(QueueableContext ctx) {
+        // DML has committed; callouts are permitted here
+    }
+}</code>
+    <p>The <code>Database.AllowsCallouts</code> marker interface is required — without it the same error appears inside the Queueable, which is a confusing place to meet it.</p>
+
+    <h3>Async job limits</h3>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Constraint</th><th>Value</th><th>Catches people out because</th></tr></thead>
+      <tbody>
+        <tr><td>Queueables enqueued from a synchronous transaction</td><td>50</td><td>Generous — but a trigger enqueuing per record still burns it</td></tr>
+        <tr><td>Queueables enqueued from an async context</td><td>1</td><td>Chaining allows exactly one child job per parent</td></tr>
+        <tr><td><code>@future</code> calls per transaction</td><td>50</td><td>A future called per record in a loop exhausts it</td></tr>
+        <tr><td><code>@future</code> from batch or future context</td><td>0</td><td>You cannot chain <code>@future</code> from <code>@future</code></td></tr>
+        <tr><td>Batch jobs queued or active</td><td>5</td><td>Org-wide, not per user — shared with everyone</td></tr>
+        <tr><td>Async executions per 24 hours</td><td>250,000 or 200 × licences</td><td>Org-wide daily ceiling</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The second row is where chaining designs come unstuck: a running Queueable may enqueue exactly <strong>one</strong> child job, so a job that tries to fan out into several parallel jobs fails on the second call. Chain sequentially instead, and build in a stop condition — runaway chains consume the org's daily async allocation quickly.</p>
+    <p>In synchronous code the 50-job allowance is comfortable, but a trigger that enqueues per record still exhausts it during a bulk load: 200 records means 200 jobs. Collect the IDs and enqueue once for the whole batch.</p>
+
     <h2>Staying out of trouble</h2>
     <ul>
       <li><strong>Never put SOQL or DML in a loop.</strong> Collect IDs, query once with <code>IN :ids</code>, write once with a collection DML. This single habit prevents most SOQL 101 and DML 151 errors.</li>
@@ -150,6 +290,8 @@ System.debug('Heap: ' + Limits.getHeapSize() + ' / ' + Limits.getLimitHeapSize()
       <li><strong>Mind heap with large payloads.</strong> Building giant strings or deserializing big JSON eats the 6 MB fast; process in chunks or async.</li>
       <li><strong>Check the log after big transactions</strong>, not just failing ones. "96 out of 100" today is an error next month when data grows.</li>
     </ul>
+    <p>Two habits matter more than the rest. <strong>Design for 200 records, always.</strong> Salesforce hands triggers up to 200 records per batch, and code written for a single record is the root cause of nearly every limit error on this page. If a method takes one record where it could take a list, that is where your next incident will come from.</p>
+    <p><strong>Treat 50% consumption as your ceiling.</strong> Limits are consumed by everything in the transaction, including automation you did not write and packages installed after you shipped. Code sitting at 90% of a limit is not passing — it is failing later, on someone else's schedule.</p>
 
     <h2 id="faq">Frequently asked questions</h2>
     <div class="guide-faq">
@@ -157,6 +299,11 @@ System.debug('Heap: ' + Limits.getHeapSize() + ' / ' + Limits.getLimitHeapSize()
       <details><summary>How do I see governor limit usage in a debug log?</summary><p>Find <code>LIMIT_USAGE_FOR_NS</code> near the end of the log — it lists consumption against each maximum, per namespace. ForceLens renders the same data as a visual limits dashboard.</p></details>
       <details><summary>Do managed packages get their own limits?</summary><p>Certified managed packages get separate buckets for most counted limits (SOQL, DML), but CPU time and heap are shared across all namespaces in the transaction.</p></details>
       <details><summary>How can I check limits from Apex code?</summary><p>Use <code>System.Limits</code> methods — <code>Limits.getQueries()</code>, <code>Limits.getCpuTime()</code>, <code>Limits.getHeapSize()</code> and their <code>getLimit*</code> counterparts — to read live consumption at runtime.</p></details>
+      <details><summary>Can I increase or buy my way past governor limits?</summary><p>No. Limits exist to protect the shared multitenant infrastructure other orgs run on, so they are not a paid tier. The answer is always architectural: bulkify, move work asynchronous where each job gets a fresh budget, or use Batch Apex for genuine high volume.</p></details>
+      <details><summary>When do governor limits reset?</summary><p>At each transaction boundary: a user action or API call, each <code>@future</code> invocation, each Queueable <code>execute()</code>, each Batch Apex <code>execute()</code> chunk, each scheduled run, and the block inside <code>Test.startTest()</code>/<code>Test.stopTest()</code>. Calling another class, entering another trigger, or invoking a Flow does not reset anything.</p></details>
+      <details><summary>Why did my org start hitting limits after installing a package?</summary><p>Everything triggered by one save shares a single budget. A managed package adding triggers or Flows to an object you already automate consumes CPU and heap from the same allocation — those two are shared across all namespaces even though the log reports them separately. Transactions that previously sat at 70% can cross the cap with no change to your own code.</p></details>
+      <details><summary>Does one DML statement on 200 records count as 1 or 200?</summary><p>One statement, and 200 rows. The two limits are separate: 150 statements and 10,000 rows per transaction. This is why a collection DML outside the loop can update thousands of records while the same work done record-by-record fails at 151.</p></details>
+      <details><summary>What is the difference between the 50,000 row limit and the QueryLocator limit?</summary><p>Regular SOQL can retrieve 50,000 rows per transaction. <code>Database.getQueryLocator</code> in a non-batch context returns up to 10,000. A QueryLocator returned from a Batch Apex <code>start()</code> method is the exception — it streams up to 50 million records, because each <code>execute()</code> chunk is processed as its own transaction.</p></details>
     </div>
 
     <div class="guide-cta">
