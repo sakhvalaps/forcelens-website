@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_performance.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,18 @@
           { "@type": "Question", "name": "What is the Apex CPU time limit in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "10,000 milliseconds (10 seconds) of CPU time per synchronous transaction, and 60,000 milliseconds (60 seconds) for asynchronous transactions such as batch, future and queueable jobs. Exceeding it throws the uncatchable 'Apex CPU time limit exceeded' error and rolls back the transaction." } },
           { "@type": "Question", "name": "What does NOT count toward Salesforce CPU time?", "acceptedAnswer": { "@type": "Answer", "text": "Database time does not count: SOQL query execution, DML database operations, and HTTP callout wait time are excluded. What counts is actual computation — Apex statements, loops, triggers, Flow element execution, validation and workflow evaluation, and managed package code." } },
           { "@type": "Question", "name": "How do I find what is consuming CPU time in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Compare elapsed-time values (the nanosecond counters in parentheses) between CODE_UNIT_STARTED and CODE_UNIT_FINISHED pairs to find the slowest units, and check LIMIT_USAGE_FOR_NS for 'Maximum CPU time'. A log analyzer like ForceLens computes this per-unit timing automatically in its Performance and Timeline tabs." } },
-          { "@type": "Question", "name": "Can I catch the CPU time limit exception in Apex?", "acceptedAnswer": { "@type": "Answer", "text": "No. Limit exceptions like System.LimitException: Apex CPU time limit exceeded cannot be caught with try/catch. The only remedy is prevention: reduce computation, bulkify, or move work to asynchronous context." } }
+          { "@type": "Question", "name": "Can I catch the CPU time limit exception in Apex?", "acceptedAnswer": { "@type": "Answer", "text": "No. Limit exceptions like System.LimitException: Apex CPU time limit exceeded cannot be caught with try/catch. The only remedy is prevention: reduce computation, bulkify, or move work to asynchronous context." } },
+          { "@type": "Question", "name": "Why does the CPU time limit error only happen in production?", "acceptedAnswer": { "@type": "Answer", "text": "Two reasons. Data volume: production triggers process full 200-record batches against millions of related rows, while sandbox tests run against far less data. And CPU time is measured against real execution on shared infrastructure, so identical code consumes more under production load. A transaction using 9,600 ms in a sandbox has almost no margin and will fail in production." } },
+          { "@type": "Question", "name": "Does managed package code count toward my Apex CPU limit?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. CPU time is one of the few governor limits shared across all namespaces. Managed package automation appears in its own LIMIT_USAGE_FOR_NS block in the debug log but consumes the same 10-second budget as your own code." } },
+          { "@type": "Question", "name": "Do SOQL queries count toward Apex CPU time?", "acceptedAnswer": { "@type": "Answer", "text": "The database execution time of a SOQL query does not count toward CPU time. However, iterating the returned rows in Apex does, so a query returning 50,000 rows still causes CPU problems through the loop that processes it. Reduce the number of rows returned rather than only optimising query speed." } },
+          { "@type": "Question", "name": "How much CPU headroom should a Salesforce transaction have?", "acceptedAnswer": { "@type": "Answer", "text": "Target under 5,000 ms — half the 10-second synchronous budget — for any transaction on a growing object. Anything consistently above 8,000 ms should be treated as already failing, because normal production variance and future data growth will push it over the limit." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -98,6 +102,20 @@
       <p>"Apex CPU time limit exceeded" means your transaction used more than <strong>10 seconds of CPU</strong> (60 seconds for async). Database time doesn't count — the culprit is computation: loops over large collections, nested trigger/Flow recursion, or inefficient code in triggers and managed packages. Find the hotspot in the debug log, then bulkify, cache with maps, or move work async.</p>
     </div>
 
+    <h2>The exact error, and what Salesforce is telling you</h2>
+    <p>The error surfaces in one of two forms. In a synchronous transaction — a user saving a record, a Lightning component action, a Visualforce postback — you get:</p>
+    <code class="guide-code">System.LimitException: Apex CPU time limit exceeded</code>
+    <p>In asynchronous contexts the wording shifts slightly, and the governor budget is six times larger:</p>
+    <code class="guide-code">System.LimitException: Apex CPU time limit exceeded
+  (Batchable, 60000 ms)</code>
+    <p>Three properties of this error make it uniquely frustrating, and they are worth internalising before you start debugging:</p>
+    <ul>
+      <li><strong>It is uncatchable.</strong> <code>System.LimitException</code> does not participate in <code>try/catch</code>. You cannot degrade gracefully, log it, or retry within the transaction. When it fires, everything rolls back.</li>
+      <li><strong>It is cumulative across the whole transaction.</strong> The 10 seconds is not per trigger or per class — it is the total for every piece of Apex, Flow, validation rule, workflow and managed-package code that runs from the moment your DML starts until the transaction commits.</li>
+      <li><strong>It is non-deterministic.</strong> CPU time is measured against real execution on shared infrastructure. A transaction consuming 9,600 ms passes on a quiet org and fails at 10,100 ms under load. This is why the bug "only happens in production" and why it appears intermittently before becoming constant.</li>
+    </ul>
+    <p>That last point matters more than it first appears. If you are seeing this error occasionally, you do not have an occasional problem — you have a transaction permanently sitting near the ceiling, and normal variance is pushing it over. The fix is never to retry; it is to create headroom.</p>
+
     <h2>What counts toward CPU time — and what doesn't</h2>
     <div class="guide-table-wrap">
     <table class="guide-table">
@@ -122,7 +140,87 @@
       <li><strong>Managed package automation</strong> you can't see — but which absolutely bills to your transaction's CPU.</li>
     </ol>
 
+    <h3>1. Nested loops — the O(n²) trap</h3>
+    <p>This is the cause in the clear majority of CPU limit cases, and it is almost always written by someone who knew to avoid SOQL in loops but did not think of iteration itself as expensive. The pattern looks harmless:</p>
+    <code class="guide-code">// ANTI-PATTERN: 200 opportunities x 5,000 line items = 1,000,000 iterations
+for (Opportunity opp : Trigger.new) {
+    for (OpportunityLineItem oli : allLineItems) {
+        if (oli.OpportunityId == opp.Id) {
+            opp.Total_Custom__c += oli.TotalPrice;
+        }
+    }
+}</code>
+    <p>There is no SOQL and no DML inside the loop, so this passes most code reviews. But the comparison count is the product of the two collection sizes. At 200 × 5,000 you are executing a million string comparisons and a million property reads, which comfortably exceeds 10 seconds on its own.</p>
+    <p>The fix is to build a <code>Map</code> once, converting the inner scan into a hash lookup:</p>
+    <code class="guide-code">// CORRECT: group children once, then one pass over parents
+Map&lt;Id, List&lt;OpportunityLineItem&gt;&gt; itemsByOpp = new Map&lt;Id, List&lt;OpportunityLineItem&gt;&gt;();
+for (OpportunityLineItem oli : allLineItems) {
+    if (!itemsByOpp.containsKey(oli.OpportunityId)) {
+        itemsByOpp.put(oli.OpportunityId, new List&lt;OpportunityLineItem&gt;());
+    }
+    itemsByOpp.get(oli.OpportunityId).add(oli);
+}
+
+for (Opportunity opp : Trigger.new) {
+    for (OpportunityLineItem oli : itemsByOpp.get(opp.Id)) {
+        opp.Total_Custom__c += oli.TotalPrice;
+    }
+}</code>
+    <p>Total iterations drop from 1,000,000 to roughly 10,200 — 5,000 to build the map, then 200 parents plus the 5,000 children distributed among them — a reduction of about 99%. This single refactor resolves more CPU limit errors than every other technique combined. The rule to remember: <strong>if you are searching a collection inside a loop, you need a Map.</strong></p>
+
+    <h3>2. Trigger recursion</h3>
+    <p>A trigger that updates its own object re-enters the entire automation stack — your trigger, every other trigger on that object, all record-triggered Flows, all validation rules and workflow. Two or three re-entries multiply your total CPU by the same factor.</p>
+    <code class="guide-code">public class TriggerGuard {
+    private static Set&lt;Id&gt; processedIds = new Set&lt;Id&gt;();
+
+    public static List&lt;Account&gt; filterUnprocessed(List&lt;Account&gt; records) {
+        List&lt;Account&gt; toProcess = new List&lt;Account&gt;();
+        for (Account acc : records) {
+            if (!processedIds.contains(acc.Id)) {
+                processedIds.add(acc.Id);
+                toProcess.add(acc);
+            }
+        }
+        return toProcess;
+    }
+}</code>
+    <p>A record-level <code>Set&lt;Id&gt;</code> guard is safer than a simple <code>static Boolean hasRun</code> flag. The boolean version silently skips legitimate processing when a transaction updates several batches of the same object — a common source of "the automation didn't run" bugs introduced while fixing CPU problems.</p>
+
+    <h3>3. Repeated schema and describe calls</h3>
+    <p>Describe calls are far more expensive than they look, and putting one inside a loop is a quiet way to burn seconds:</p>
+    <code class="guide-code">// ANTI-PATTERN: full describe on every iteration
+for (String fieldName : fieldNames) {
+    Schema.SObjectType t = Schema.getGlobalDescribe().get('Account');
+    // ...
+}</code>
+    <p><code>Schema.getGlobalDescribe()</code> builds a map of every object in the org on each call. Hoist it above the loop, or cache it in a static variable so it is computed once per transaction and reused.</p>
+
+    <h3>4. String concatenation in loops</h3>
+    <p>Apex strings are immutable, so <code>result += chunk</code> allocates a brand-new string containing everything accumulated so far on every pass. Building a 10,000-row CSV this way is quadratic in both CPU and heap, and frequently trips the <a href="/apex-heap-size-limit">heap size limit</a> at the same time. Collect the pieces in a <code>List&lt;String&gt;</code> and call <code>String.join(parts, '\n')</code> once at the end.</p>
+
     <h2>Finding the hotspot in the debug log</h2>
+    <p>Before changing any code, find out where the time is actually going. Optimising the wrong method is the most common way to waste a day on this error. The following procedure needs nothing but the Developer Console.</p>
+
+    <h3>Step 1 — Capture the log at the right level</h3>
+    <p>Set your trace flag so that the timing data you need is present without drowning the log in noise. For CPU work the important setting is <code>PROFILING_INFO</code>, and you want <code>APEX_CODE</code> high enough to see code unit boundaries:</p>
+    <code class="guide-code">ApexCode:       FINE
+ApexProfiling:  FINEST
+Database:       INFO
+System:         INFO
+Workflow:       INFO
+Validation:     INFO</code>
+    <p>Avoid <code>FINEST</code> on <code>ApexCode</code> unless you truly need statement-level detail. It inflates the log, and any log that exceeds the 20 MB cap gets truncated — usually cutting off the summary section you were looking for. See <a href="/salesforce-debug-log-levels">debug log levels explained</a> for the full matrix.</p>
+
+    <h3>Step 2 — Read the limit summary first</h3>
+    <p>Jump to the end of the log and find the <code>LIMIT_USAGE_FOR_NS</code> block. This tells you immediately whether CPU is genuinely your problem, or whether it is a symptom of something else:</p>
+    <code class="guide-code">LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of DML statements: 4 out of 150
+  Maximum CPU time: 9840 out of 10000 ******* CLOSE TO LIMIT</code>
+    <p>If CPU is near the cap while SOQL and DML sit comfortably low, the cause is computation — loops, string work, or Flow elements. If SOQL is <em>also</em> high, the real problem is often query volume driving iteration, and <a href="/soql-query-optimization">fixing the queries</a> resolves the CPU symptom as a side effect.</p>
+    <p>Note that in an org with managed packages you will see several <code>LIMIT_USAGE_FOR_NS</code> blocks — one per namespace. CPU time is the one governor limit that is <strong>shared across all namespaces</strong>, so a package's consumption counts against your total even though it appears in a separate block.</p>
+
+    <h3>Step 3 — Rank the code units by elapsed time</h3>
     <p>Every log line carries a nanosecond elapsed counter, e.g. <code>(5348351)</code>. The manual method:</p>
     <code class="guide-code">14:23:07.1 (120000000)|CODE_UNIT_STARTED|[EXTERNAL]|OpportunityTrigger on Opportunity trigger event AfterUpdate
 14:23:09.8 (2830000000)|CODE_UNIT_FINISHED|OpportunityTrigger on Opportunity trigger event AfterUpdate</code>
@@ -142,12 +240,63 @@
       <li><strong>Cache expensive computation.</strong> Static variables survive for the transaction — compute once, reuse.</li>
     </ul>
 
+    <h3>Which fix to reach for first</h3>
+    <p>These are not equally valuable. Work down this table in order — the top row resolves most cases and costs the least effort:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Symptom in the log</th><th>Most likely fix</th><th>Typical CPU reduction</th></tr></thead>
+      <tbody>
+        <tr><td>One trigger dominates; SOQL count is low</td><td>Replace nested loops with Map lookups</td><td>90–99%</td></tr>
+        <tr><td>Same trigger appears 2–3 times in the log</td><td>Add a recursion guard</td><td>50–70%</td></tr>
+        <tr><td>Many Flow elements, high element count</td><td>Consolidate Flows; move loops to Apex</td><td>40–80%</td></tr>
+        <tr><td>Time spread evenly, nothing dominates</td><td>Move non-essential work async</td><td>Varies</td></tr>
+        <tr><td>A managed package namespace dominates</td><td>Scope package triggers; contact vendor</td><td>Varies</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Moving work asynchronous</h3>
+    <p>When the computation is genuinely necessary, relocate it rather than optimise it. Async contexts get 60,000 ms instead of 10,000 ms and run outside the user's save, so the record saves immediately:</p>
+    <code class="guide-code">public class RollupProcessor implements Queueable {
+    private Set&lt;Id&gt; accountIds;
+
+    public RollupProcessor(Set&lt;Id&gt; accountIds) {
+        this.accountIds = accountIds;
+    }
+
+    public void execute(QueueableContext ctx) {
+        // heavy computation now runs with a 60s budget
+    }
+}
+
+// from the trigger:
+if (!System.isBatch() &amp;&amp; !System.isFuture()) {
+    System.enqueueJob(new RollupProcessor(affectedIds));
+}</code>
+    <p>Two constraints to respect. A synchronous transaction may enqueue up to 50 Queueable jobs, but an <em>asynchronous</em> one may enqueue only <strong>one</strong> — which is why the guard above checks <code>isBatch()</code> and <code>isFuture()</code> before enqueuing. And enqueue once for the whole collection rather than per record, or a 200-record bulk update will trade your CPU limit error for a queueable limit error.</p>
+    <p>Good candidates for async: roll-up recalculation, external system integration, notification sending, audit logging, data enrichment. Poor candidates: anything the user must see reflected on the record immediately, and anything a validation rule depends on.</p>
+
+    <h2>Preventing the error from coming back</h2>
+    <p>Fixing the immediate failure without changing how you build automation guarantees a repeat. Three practices matter:</p>
+    <p><strong>Test at realistic volume.</strong> The default assumption of 200 records in a trigger test is the minimum, not a target. If your org processes 5,000-record data loads, write a test that does so. A transaction that passes at 200 records and fails at 2,000 has an O(n²) pattern in it that volume testing would have exposed in development.</p>
+    <p><strong>Instrument before you need to.</strong> <code>Limits.getCpuTime()</code> is available anywhere in Apex and costs nothing meaningful to call. Logging it at the boundaries of expensive operations gives you the hotspot ranking for free the next time something degrades:</p>
+    <code class="guide-code">Long startCpu = Limits.getCpuTime();
+processLargeDataset(records);
+System.debug(LoggingLevel.WARN, 'Rollup CPU: '
+    + (Limits.getCpuTime() - startCpu) + 'ms of '
+    + Limits.getLimitCpuTime() + 'ms');</code>
+    <p><strong>Keep one trigger per object.</strong> Multiple triggers on the same object execute in an order Salesforce does not guarantee, which makes CPU profiling significantly harder and recursion far more likely. A single trigger delegating to a handler class keeps the execution path readable in the log — which is exactly what you need when you are staring at a 50,000-line log at 2am.</p>
+
     <h2 id="faq">Frequently asked questions</h2>
     <div class="guide-faq">
       <details><summary>What is the Apex CPU time limit in Salesforce?</summary><p>10,000 ms (10 seconds) per synchronous transaction; 60,000 ms for asynchronous (batch, future, queueable). Exceeding it throws an uncatchable limit exception and rolls back the transaction. Full list: <a href="/salesforce-governor-limits-explained">governor limits explained</a>.</p></details>
       <details><summary>What does NOT count toward CPU time?</summary><p>Database time: SOQL execution, DML database operations, and callout wait time are excluded. Computation — Apex statements, trigger and Flow logic, validation, managed package code — is what counts.</p></details>
       <details><summary>How do I find what's consuming CPU in a debug log?</summary><p>Diff the elapsed-time counters between CODE_UNIT_STARTED/FINISHED pairs and check LIMIT_USAGE_FOR_NS at the end of the log — or let ForceLens's Performance and Timeline tabs compute the ranking automatically.</p></details>
       <details><summary>Can I catch the CPU limit exception in try/catch?</summary><p>No. <code>System.LimitException</code> is uncatchable. Prevention — bulkification, recursion control, async offloading — is the only fix.</p></details>
+      <details><summary>Why does it only fail in production, not in my sandbox?</summary><p>Two reasons. Data volume: production triggers process full 200-record batches against millions of related rows, while sandbox tests run against a handful. And CPU time is measured on shared infrastructure, so the same code consumes measurably more under production load. A transaction using 9,600 ms in a sandbox has almost no margin and will fail in production.</p></details>
+      <details><summary>Does managed package code count toward my CPU limit?</summary><p>Yes. CPU time is one of the few governor limits shared across all namespaces. Package automation appears in its own <code>LIMIT_USAGE_FOR_NS</code> block but consumes the same 10-second budget. If a package dominates your log, look for scoping settings, reduce which record changes invoke it, or raise it with the vendor.</p></details>
+      <details><summary>Do SOQL queries count toward CPU time?</summary><p>The database execution time does not. However, iterating the returned rows in Apex does, so a query returning 50,000 rows still causes CPU problems through the loop that processes it. Reduce rows returned rather than only optimising query speed.</p></details>
+      <details><summary>How much CPU headroom should I aim for?</summary><p>Target under 5,000 ms — half the budget — for any transaction on a growing object. Anything above 8,000 ms should be treated as already failing, because normal production variance and future data growth will push it over.</p></details>
     </div>
 
     <div class="guide-cta">

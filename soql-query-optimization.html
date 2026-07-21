@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_soql.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,18 @@
           { "@type": "Question", "name": "How do I fix 'Too many SOQL queries: 101' in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "The error means your transaction issued more than 100 SOQL queries — almost always a query inside a loop, often via a trigger firing per record or recursion. Move queries outside loops: collect IDs first, run one query with an IN clause, and store results in a Map for lookup. Also check for trigger recursion re-firing the same automation." } },
           { "@type": "Question", "name": "What makes a SOQL query non-selective?", "acceptedAnswer": { "@type": "Answer", "text": "A filter is non-selective when it can't use an index to narrow results — e.g. filtering on a non-indexed field, using leading-wildcard LIKE '%text', negative operators (!=, NOT IN), or comparing to null. On large objects (over 200,000 records) non-selective queries in triggers can throw runtime errors and are slow everywhere." } },
           { "@type": "Question", "name": "How do I see SOQL queries in a debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Each query logs a SOQL_EXECUTE_BEGIN event (with the query text and Apex line number) and a SOQL_EXECUTE_END event (with rows returned). Set the Database log category to FINEST for full detail. A log analyzer like ForceLens aggregates every query with counts and row totals in a dedicated SOQL tab." } },
-          { "@type": "Question", "name": "Does SOQL time count toward the CPU limit?", "acceptedAnswer": { "@type": "Answer", "text": "No — database execution time is excluded from the Apex CPU time limit. But slow queries still hurt total transaction time and user experience, and retrieved rows count toward the 50,000 query-row governor limit." } }
+          { "@type": "Question", "name": "Does SOQL time count toward the CPU limit?", "acceptedAnswer": { "@type": "Answer", "text": "No — database execution time is excluded from the Apex CPU time limit. But slow queries still hurt total transaction time and user experience, and retrieved rows count toward the 50,000 query-row governor limit." } },
+          { "@type": "Question", "name": "How do I use the Salesforce Query Plan tool?", "acceptedAnswer": { "@type": "Answer", "text": "Enable it in Developer Console under Help > Preferences > Enable Query Plan, then click Query Plan in the Query Editor. Check two columns: Leading Operation Type should read Index rather than TableScan, and Cost should be below 1.0. Run it against production-scale data, because a plan built on a few sandbox records does not reflect behaviour at millions of rows." } },
+          { "@type": "Question", "name": "Does adding LIMIT make a SOQL query selective?", "acceptedAnswer": { "@type": "Answer", "text": "No. LIMIT caps the rows returned but the query optimizer may still scan the table to determine which rows qualify. LIMIT protects heap usage and the query-row limit, not query speed. Pair it with a selective indexed filter rather than relying on it alone." } },
+          { "@type": "Question", "name": "Do Batch Apex queries count toward the 50,000 query row limit?", "acceptedAnswer": { "@type": "Answer", "text": "Rows retrieved by a Database.QueryLocator in the start() method are exempt from the 50,000 query-row limit and can stream up to 50 million records. Queries issued inside execute() count normally, but against a fresh set of limits for each batch chunk." } },
+          { "@type": "Question", "name": "Why is my SOQL query selective in sandbox but not in production?", "acceptedAnswer": { "@type": "Answer", "text": "Selectivity thresholds are proportional to actual data volume. A filter can fall under the 10% custom-index threshold in a small sandbox and well above it in production. Always validate query plans against production-like data volumes, and prefer SOQL timings from a real production debug log over reasoning about the query in isolation." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -108,6 +112,26 @@
       <li>The elapsed-counter difference between BEGIN and END is the query's wall time.</li>
     </ul>
 
+    <h3>What the row count is really telling you</h3>
+    <p>Before optimising anything, classify the query using the two numbers the log gives you. The combination of repetition count and rows returned points at completely different problems:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Pattern in the log</th><th>Diagnosis</th><th>Governor limit at risk</th></tr></thead>
+      <tbody>
+        <tr><td>Same query text, same line, many times</td><td>Query inside a loop</td><td>100 SOQL queries</td></tr>
+        <tr><td>One query, tens of thousands of rows</td><td>Unbounded or unfiltered query</td><td>50,000 query rows</td></tr>
+        <tr><td>Few queries, each slow (large BEGIN→END gap)</td><td>Non-selective filter</td><td>Query timeout</td></tr>
+        <tr><td>Same query, different line numbers</td><td>Duplicate work across classes</td><td>100 SOQL queries</td></tr>
+        <tr><td>Query text you do not recognise</td><td>Managed package or recursion</td><td>Both</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Note the difference between the last two rows and everything else. A query repeated from <em>different</em> line numbers is not a loop — it is two classes independently fetching the same data, which is a caching problem rather than a bulkification problem. And a query you do not recognise at all is usually a managed package, which counts against your limits but cannot be edited.</p>
+
+    <h3>Row counts versus query counts</h3>
+    <p>These are separate governor limits and they fail in different ways. The 100-query limit is about <em>how many times</em> you ask; the 50,000-row limit is about <em>how much</em> you get back. A transaction issuing 4 queries that each return 20,000 rows passes the first limit comfortably and dies on the second.</p>
+    <p>Worth knowing: rows retrieved by a <code>Database.QueryLocator</code> in Batch Apex do <strong>not</strong> count toward the 50,000-row limit — that is the entire reason Batch Apex exists. A QueryLocator streams up to 50 million records. This is why "move it to Batch Apex" is the definitive answer for genuine high-volume processing rather than a workaround.</p>
+
     <h2>The three SOQL patterns that hurt you</h2>
     <h3>1. Queries in loops → "Too many SOQL queries: 101"</h3>
     <p>The signature in the log is the <em>same</em> query text at the <em>same</em> line number, dozens of times. The fix is always the same shape:</p>
@@ -126,6 +150,37 @@ for (Opportunity opp : Trigger.new) {
 }</code>
     <p>If the repeated query isn't in your code, suspect trigger recursion or a managed package — the log's execution tree shows who issued it.</p>
 
+    <h4>When the query is not visibly in a loop</h4>
+    <p>The obvious case is easy. These four are the ones that cost people an afternoon:</p>
+    <p><strong>A query inside a method called from a loop.</strong> The loop is in one class, the SOQL is three call levels down in a utility method. Nothing looks wrong at either site. The debug log settles it instantly — the same line number repeating means that line ran many times, regardless of where the loop lives.</p>
+    <code class="guide-code">// Looks clean at the call site
+for (Account a : accounts) {
+    processAccount(a);          // no SOQL visible here
+}
+
+private void processAccount(Account a) {
+    List&lt;Contact&gt; cs = [SELECT Id FROM Contact WHERE AccountId = :a.Id];  // fires per account
+}</code>
+    <p><strong>Trigger recursion.</strong> A trigger issuing 30 queries is fine. The same trigger re-entering four times issues 120 and fails. The query count is a symptom; the recursion is the bug. If your log shows the same trigger's <code>CODE_UNIT_STARTED</code> several times, fix that first — see the recursion guard in the <a href="/salesforce-cpu-time-limit-exceeded">CPU time limit guide</a>.</p>
+    <p><strong>Queries inside a getter.</strong> In Visualforce especially, a property getter that queries is re-evaluated every time the page references it. One getter can produce dozens of identical queries with no loop anywhere in your code. Cache the result in a member variable on first access.</p>
+    <code class="guide-code">private List&lt;Contact&gt; cachedContacts;
+public List&lt;Contact&gt; getContacts() {
+    if (cachedContacts == null) {
+        cachedContacts = [SELECT Id, Name FROM Contact WHERE AccountId = :recordId];
+    }
+    return cachedContacts;
+}</code>
+    <p><strong>Aggregate queries in loops.</strong> <code>COUNT()</code> per record is the same anti-pattern wearing a disguise. Replace the loop with a single <code>GROUP BY</code>:</p>
+    <code class="guide-code">// One aggregate query replaces N counting queries
+for (AggregateResult ar : [SELECT AccountId aid, COUNT(Id) total
+                           FROM Contact WHERE AccountId IN :acctIds
+                           GROUP BY AccountId]) {
+    countsByAccount.put((Id) ar.get('aid'), (Integer) ar.get('total'));
+}</code>
+
+    <h4>Where the limit actually resets</h4>
+    <p>The 100-query limit applies per transaction, not per class, and every trigger, Flow and managed package in that transaction draws from the same budget. It resets only at a genuine transaction boundary: a new asynchronous job (<code>@future</code>, Queueable, each Batch <code>execute()</code>), or the block inside <code>Test.startTest()</code> and <code>Test.stopTest()</code> in a test context. Calling another class does not reset anything.</p>
+
     <h3>2. Non-selective queries</h3>
     <p>A query is selective when its filter can use an index. These defeat indexes:</p>
     <ul>
@@ -136,8 +191,87 @@ for (Opportunity opp : Trigger.new) {
     </ul>
     <p>On objects with over ~200,000 records, non-selective filters in trigger context can throw "Non-selective query" runtime errors. Fixes: filter on indexed fields, add a custom index via Salesforce Support, or use an External ID field. The <a href="https://developer.salesforce.com/docs/atlas.en-us.salesforce_large_data_volumes_bp.meta/salesforce_large_data_volumes_bp/ldv_deployments_infrastructure_query_optimizer.htm" target="_blank" rel="noopener noreferrer">Salesforce query optimizer docs</a> cover selectivity thresholds in detail.</p>
 
+    <h4>The selectivity thresholds</h4>
+    <p>"Selective" is not a judgement call — Salesforce's query optimizer applies specific numbers. A filter qualifies as selective when it passes these thresholds:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Index type</th><th>First million records</th><th>Additional records</th><th>Effective cap</th></tr></thead>
+      <tbody>
+        <tr><td>Standard index</td><td>Under 30%</td><td>Under 15%</td><td>~1,000,000 records</td></tr>
+        <tr><td>Custom index</td><td>Under 10%</td><td>Under 5%</td><td>~333,333 records</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Two consequences follow. First, an index on a field with poor cardinality is useless — indexing a checkbox that is <code>true</code> for 60% of records will never be selective, because the filter cannot get under the threshold. Second, selectivity depends on your <em>data</em>, not your schema, so the identical query can be selective in a sandbox and non-selective in production. This is why <code>SOQL_EXECUTE</code> timings from a real production log matter more than any amount of local reasoning.</p>
+
+    <h4>Using the Query Plan tool</h4>
+    <p>The Developer Console can show you exactly what the optimizer intends to do, before you run anything. Enable it once: <strong>Developer Console → Help → Preferences → Enable Query Plan</strong>. Then open the Query Editor, enter a query, and click <strong>Query Plan</strong>.</p>
+    <p>You get one row per access path the optimizer considered, with these columns:</p>
+    <ul>
+      <li><strong>Cardinality</strong> — estimated rows the query will return.</li>
+      <li><strong>Fields</strong> — which index, if any, that plan would use.</li>
+      <li><strong>Leading Operation Type</strong> — the decisive column. <code>Index</code> means an index will be used. <code>TableScan</code> means every record will be examined, and is what you are trying to eliminate. <code>Other</code> and <code>Sharing</code> indicate the optimizer fell back to internal filtering.</li>
+      <li><strong>Cost</strong> — below <code>1.0</code> means the optimizer considers the plan selective. Above <code>1.0</code> means it does not, and a table scan is likely.</li>
+    </ul>
+    <p>Read it as a simple test: <strong>Cost under 1.0 with a Leading Operation Type of Index is a healthy query.</strong> Anything showing <code>TableScan</code> on an object with substantial data will be slow now and will fail eventually. Run this against production-like data volumes — a query plan built on 50 sandbox records tells you nothing about behaviour at two million.</p>
+
+    <h4>Making a query selective again</h4>
+    <p>In rough order of preference:</p>
+    <ol>
+      <li><strong>Add an indexed field to the filter.</strong> Combining a non-selective filter with a selective one lets the optimizer drive from the index and filter the remainder in memory. Adding <code>CreatedDate = LAST_N_DAYS:30</code> to an unselective query frequently fixes it outright.</li>
+      <li><strong>Replace negative operators.</strong> <code>Status__c != 'Closed'</code> cannot use an index; <code>Status__c IN ('New','Open','Pending')</code> can. Enumerating the values you want beats excluding the ones you do not.</li>
+      <li><strong>Remove leading wildcards.</strong> <code>LIKE 'acme%'</code> uses an index. <code>LIKE '%acme'</code> cannot, ever — the index is ordered from the start of the string.</li>
+      <li><strong>Avoid null comparisons on non-indexed fields.</strong> Standard indexes do not include null rows unless the field is explicitly indexed for nulls. A populated sentinel value is often faster than <code>= null</code>.</li>
+      <li><strong>Request a custom index</strong> from Salesforce Support for a field you filter on constantly. Free, but only worthwhile where cardinality is genuinely high.</li>
+      <li><strong>Use a skinny table</strong> for very large objects with expensive recurring reporting queries. Support-provisioned and a significant commitment — a last resort, not a first move.</li>
+    </ol>
+
     <h3>3. Unbounded row counts</h3>
     <p>A single query returning tens of thousands of rows eats the 50,000 query-row governor limit, bloats heap, and slows everything. Add filters, add <code>LIMIT</code>, or process with a SOQL for-loop / Batch Apex, which chunk results instead of materializing them all.</p>
+    <p>An important subtlety: <code>LIMIT</code> caps the rows you receive but does not necessarily make the query selective. The optimizer may still scan the table to determine which rows satisfy the filter before returning the first 100. <code>LIMIT</code> protects your heap and row count; it does not protect against a table scan. Use it alongside a selective filter, never instead of one.</p>
+    <p>The three escalating options, cheapest first:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Approach</th><th>Rows toward 50k limit</th><th>Peak heap</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td><code>List&lt;X&gt; y = [SELECT ...]</code></td><td>All of them</td><td>All of them</td><td>Small, bounded result sets</td></tr>
+        <tr><td>SOQL for-loop</td><td>All of them</td><td>200 records at a time</td><td>Large results, single transaction</td></tr>
+        <tr><td>Batch Apex <code>QueryLocator</code></td><td>Exempt</td><td>Fresh per chunk</td><td>Genuine high volume</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The middle row is the one people miss. A SOQL for-loop solves the <a href="/apex-heap-size-limit">heap problem</a> but every retrieved row still counts toward the 50,000-row limit — so it will not save a query returning 60,000 rows. Only Batch Apex escapes that ceiling.</p>
+
+    <h3>4. Duplicate queries across a transaction</h3>
+    <p>The pattern the log makes visible and code review does not: two classes each querying the same records in the same transaction. Neither is in a loop, neither is unselective, and neither author did anything obviously wrong — the waste only exists in combination.</p>
+    <p>The remedy is a transaction-scoped cache. A static map survives for the life of the transaction, so the second caller gets the data without a second query:</p>
+    <code class="guide-code">public class AccountCache {
+    private static Map&lt;Id, Account&gt; cache = new Map&lt;Id, Account&gt;();
+
+    public static Map&lt;Id, Account&gt; get(Set&lt;Id&gt; ids) {
+        Set&lt;Id&gt; missing = new Set&lt;Id&gt;();
+        for (Id i : ids) {
+            if (!cache.containsKey(i)) { missing.add(i); }
+        }
+        if (!missing.isEmpty()) {
+            cache.putAll(new Map&lt;Id, Account&gt;(
+                [SELECT Id, Name, OwnerId FROM Account WHERE Id IN :missing]));
+        }
+        return cache;
+    }
+}</code>
+    <p>Only cache data that will not change during the transaction, and be careful combining this with DML on the same records — a stale cache is a worse bug than a redundant query.</p>
+
+    <h2>A triage order that saves time</h2>
+    <p>When a transaction is failing on SOQL, work in this order. Each step is cheaper than the one after it, and roughly half of all cases are resolved by the first two:</p>
+    <ol>
+      <li><strong>Count the queries in the log.</strong> If the count is near 100, you have a repetition problem — find the repeated line number and hoist it out of its loop. Do not optimise individual queries yet.</li>
+      <li><strong>Check for repeated <code>CODE_UNIT_STARTED</code> on the same trigger.</strong> If a trigger appears more than once, recursion is multiplying every query beneath it. Fixing that one bug can drop the count by half.</li>
+      <li><strong>Sort by rows returned.</strong> Any single query returning more than a few thousand rows needs a tighter filter, a SOQL for-loop, or Batch Apex — in that order of preference.</li>
+      <li><strong>Sort by elapsed time.</strong> Only now look at individual query speed. Take the slowest one to the Query Plan tool and check for <code>TableScan</code>.</li>
+      <li><strong>Look for identical query text at different line numbers.</strong> That is duplicated work across classes, and a transaction-scoped cache removes it.</li>
+    </ol>
+    <p>The ordering matters because these problems mask each other. Optimising a query's selectivity is wasted effort if the real issue is that it runs 200 times, and adding a cache achieves nothing if recursion is re-executing the whole stack.</p>
 
     <h2>Aggregate view: the fast way</h2>
     <p>Scrolling a 40,000-line log to hand-count query repetitions is the archaeology ForceLens exists to end. Its <strong>SOQL tab</strong> aggregates every query in the transaction — count, total rows, originating code unit — so a query-in-a-loop shows up as "×200" on one row, and the unbounded query tops the rows column. The <strong>Limits</strong> tab shows the same transaction's query count against the 100 cap (<a href="/salesforce-governor-limits-explained">governor limits explained</a>).</p>
@@ -149,6 +283,10 @@ for (Opportunity opp : Trigger.new) {
       <details><summary>What makes a SOQL query non-selective?</summary><p>Filters that can't use an index: non-indexed fields, leading-wildcard LIKE, negative operators, and null comparisons. On large objects this causes errors in trigger context and slowness everywhere.</p></details>
       <details><summary>How do I see SOQL queries in a debug log?</summary><p>Set the Database category to FINEST; each query then logs SOQL_EXECUTE_BEGIN (query text, line number) and SOQL_EXECUTE_END (row count). ForceLens aggregates them automatically in its SOQL tab.</p></details>
       <details><summary>Does SOQL time count toward the CPU limit?</summary><p>No — database time is excluded from the <a href="/salesforce-cpu-time-limit-exceeded">Apex CPU limit</a>. But retrieved rows count toward the 50,000 query-row limit, and slow queries still slow the transaction.</p></details>
+      <details><summary>How do I use the Query Plan tool?</summary><p>Enable it in Developer Console → Help → Preferences → Enable Query Plan, then click <strong>Query Plan</strong> in the Query Editor. Look at two columns: Leading Operation Type should read <code>Index</code> rather than <code>TableScan</code>, and Cost should be below 1.0. Run it against production-scale data — a plan built on a few sandbox records tells you nothing about behaviour at two million.</p></details>
+      <details><summary>Does adding LIMIT make a query selective?</summary><p>No. <code>LIMIT</code> caps the rows returned to you, but the optimizer may still scan the table to work out which rows qualify. It protects heap and row count, not query speed. Pair it with an indexed filter rather than relying on it alone.</p></details>
+      <details><summary>Do Batch Apex queries count toward the 50,000 row limit?</summary><p>Rows retrieved by a <code>Database.QueryLocator</code> in the <code>start()</code> method are exempt and can stream up to 50 million records. Queries you issue inside <code>execute()</code> count normally, but against a fresh limit for each chunk.</p></details>
+      <details><summary>Why is my query selective in sandbox but not in production?</summary><p>Selectivity thresholds are proportional to actual data volume, so the same filter can fall under 10% of a small sandbox dataset and well over it in production. Always validate against production-like volumes, and prefer timings from a real production debug log over reasoning about the query in isolation.</p></details>
     </div>
 
     <div class="guide-cta">
