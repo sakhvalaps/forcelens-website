@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>ForceLens — Share Kit</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+    background: #f4f5f9;
+    color: #1e2130;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Hero — recreation of the promo tile */
+  .hero {
+    background: linear-gradient(135deg, #6d6ef0 0%, #7b5cf0 55%, #8a5df2 100%);
+    border-radius: 20px;
+    padding: 56px 32px 44px;
+    text-align: center;
+    color: #fff;
+    margin-bottom: 48px;
+  }
+  .hero .logo-tile {
+    width: 96px; height: 96px;
+    background: #fff;
+    border-radius: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    margin-bottom: 24px;
+  }
+  .hero .logo-tile img { width: 60px; height: 60px; }
+  .hero h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 14px; }
+  .hero p.tagline { font-size: 19px; opacity: .95; max-width: 420px; margin: 0 auto 18px; }
+  .hero p.byline { font-size: 14px; opacity: .8; }
+  .hero .links { margin-top: 26px; }
+  .hero .links a {
+    display: inline-block;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.35);
+    color: #fff; text-decoration: none;
+    padding: 9px 20px; border-radius: 8px;
+    font-size: 14px; margin: 0 6px;
+  }
+  .hero .links a:hover { background: rgba(255,255,255,.24); }
+
+  h2.section {
+    font-size: 22px; font-weight: 700;
+    margin: 48px 0 6px;
+    color: #2a2d45;
+  }
+  p.section-note { color: #6a6f85; font-size: 14px; margin-bottom: 18px; }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e3e5ef;
+    border-radius: 14px;
+    padding: 26px 28px;
+    margin-bottom: 26px;
+    box-shadow: 0 2px 8px rgba(30,33,48,.04);
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .card-head h3 { font-size: 17px; color: #2a2d45; }
+  .card-head .use { font-size: 12.5px; color: #7b5cf0; background: #f1edfd; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
+  .attach { font-size: 13px; color: #6a6f85; margin-bottom: 14px; }
+  .attach code { background: #f4f5f9; padding: 2px 7px; border-radius: 5px; font-size: 12px; color: #4a4e66; }
+
+  pre.msg {
+    background: #fafafd;
+    border: 1px solid #e8eaf3;
+    border-radius: 10px;
+    padding: 20px 22px;
+    font-family: inherit;
+    font-size: 14.5px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #2e3247;
+    margin-bottom: 14px;
+  }
+  button.copy {
+    background: #6d6ef0;
+    color: #fff; border: none;
+    padding: 10px 26px;
+    border-radius: 8px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  button.copy:hover { background: #5a5be0; }
+  button.copy.done { background: #2fa46a; }
+
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .shot { background: #fff; border: 1px solid #e3e5ef; border-radius: 12px; overflow: hidden; }
+  .shot img { width: 100%; display: block; border-bottom: 1px solid #eef0f7; }
+  .shot p { padding: 10px 14px; font-size: 13px; color: #4a4e66; }
+  .shot p strong { color: #2a2d45; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ HERO (promo tile recreation) ============ -->
+  <div class="hero">
+    <div class="logo-tile"><img src="./assets/logo.svg" alt="ForceLens logo"></div>
+    <h1>ForceLens</h1>
+    <p class="tagline">Read Salesforce debug logs like a story, not a riddle.</p>
+    <p class="byline">by Prit Sakhvala</p>
+    <div class="links">
+      <a href="https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi" target="_blank">Chrome Web Store</a>
+      <a href="https://forcelens.vercel.app/" target="_blank">forcelens.vercel.app</a>
+    </div>
+  </div>
+
+  <!-- ============ TEMPLATE 1 ============ -->
+  <h2 class="section">Message Templates</h2>
+  <p class="section-note">Click Copy, paste into your chat or email, and attach the suggested screenshot from the <code>assets</code> folder.</p>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>1. Quick Share — WhatsApp / Slack / Teams</h3>
+      <span class="use">Colleagues</span>
+    </div>
+    <p class="attach">Attach: <code>assets/forcelens_home.png</code> or your promo tile image</p>
+    <pre class="msg" id="msg1">Hi, I wanted to share a tool I have been building for Salesforce developers.
+
+ForceLens is a free Chrome extension that turns raw Apex debug logs into a clear, visual order of execution. Instead of setting trace flags and reading logs line by line, you click Smart Capture, run your transaction, and it shows you exactly what fired, in what order, and how limits were consumed at each step.
+
+It also analyzes Flows from four perspectives: Developer, Business Analyst, QA, and Security. AI features work with your own API key and everything runs locally in your browser, so nothing leaves your org.
+
+Install (free): https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi
+Website: https://forcelens.vercel.app
+
+It takes under a minute to set up. I would genuinely appreciate your feedback.</pre>
+    <button class="copy" data-target="msg1">Copy Message</button>
+  </div>
+
+  <!-- ============ TEMPLATE 2 ============ -->
+  <div class="card">
+    <div class="card-head">
+      <h3>2. Professional Email — Clients / Managers</h3>
+      <span class="use">Business</span>
+    </div>
+    <p class="attach">Attach: <code>assets/forcelens_home.png</code> and <code>assets/forcelens_tab_execution_tree.png</code></p>
+    <pre class="msg" id="msg2">Subject: ForceLens — Cut Salesforce debugging time from hours to minutes
+
+Dear [Name],
+
+I would like to introduce you to ForceLens, a Chrome extension built to solve one of the most time-consuming problems in Salesforce development: debugging.
+
+Today, diagnosing an issue in Salesforce means enabling trace flags, downloading raw debug logs, and reading thousands of lines manually. ForceLens replaces that entire process with a single click.
+
+What it delivers:
+
+1. Smart Capture — One click captures and organizes debug logs automatically, with no manual trace flag setup.
+
+2. True Order of Execution — A visual reconstruction of exactly when triggers, validation rules, flows, and workflows fired, and how governor limits were consumed at every step.
+
+3. Flow Intelligence — Any Flow can be analyzed through four expert perspectives: Developer, Business Analyst, QA, and Security.
+
+4. Enterprise-Safe by Design — ForceLens is 100% local-first. All processing happens in the browser. AI features use your own API key (BYOK), so no org data is ever sent to a third-party server.
+
+The extension is free on the Chrome Web Store and takes under a minute to install:
+https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi
+
+You can learn more at https://forcelens.vercel.app. I would be glad to walk you or your team through a short demo at your convenience.
+
+Best regards,
+Prit Sakhvala</pre>
+    <button class="copy" data-target="msg2">Copy Email</button>
+  </div>
+
+  <!-- ============ TEMPLATE 3 ============ -->
+  <div class="card">
+    <div class="card-head">
+      <h3>3. LinkedIn Post — Public Announcement</h3>
+      <span class="use">Marketing</span>
+    </div>
+    <p class="attach">Attach: your promo tile image, plus 2–3 screenshots as a carousel</p>
+    <pre class="msg" id="msg3">Every Salesforce developer knows this ritual: enable trace flags, run the transaction, download the debug log, and scroll through thousands of lines hoping to spot the problem.
+
+I built ForceLens to end that ritual.
+
+ForceLens is a free Chrome extension that turns raw Apex debug logs into a clear visual story:
+
+- Smart Capture: one click captures and groups your logs, no trace flag setup
+- True Order of Execution: see exactly when triggers, flows, validation rules, and workflows fired, and how limits were consumed at each step
+- Flow Intelligence: analyze any Flow through four lenses — Developer, Business Analyst, QA, and Security
+- Local-first and BYOK: everything runs in your browser, AI uses your own API key, and no org data ever leaves your machine
+
+It is free on the Chrome Web Store, and I would love your feedback.
+
+Install: https://chromewebstore.google.com/detail/kgjfgfpcglhhodepffbhoalfppdjbdhi
+Learn more: https://forcelens.vercel.app
+
+#Salesforce #Apex #SalesforceFlow #TrailblazerCommunity #SalesforceDeveloper #Debugging</pre>
+    <button class="copy" data-target="msg3">Copy Post</button>
+  </div>
+
+  <!-- ============ SCREENSHOT GUIDE ============ -->
+  <h2 class="section">Screenshot Guide</h2>
+  <p class="section-note">Which image to attach with which message.</p>
+  <div class="shots">
+    <div class="shot">
+      <img src="./assets/forcelens_home.png" alt="ForceLens home">
+      <p><strong>Home / Analysis Workspace</strong> — best first impression; use in every share.</p>
+    </div>
+    <div class="shot">
+      <img src="./assets/forcelens_tab_execution_tree.png" alt="Execution tree">
+      <p><strong>Execution Tree</strong> — shows the core value; ideal for emails to technical clients.</p>
+    </div>
+    <div class="shot">
+      <img src="./assets/forcelens_tab_order_of_execution.png" alt="Order of execution">
+      <p><strong>Order of Execution</strong> — strongest differentiator; great for LinkedIn carousels.</p>
+    </div>
+    <div class="shot">
+      <img src="./assets/forcelens_flow_analyzer.png" alt="Flow analyzer">
+      <p><strong>Flow Analyzer</strong> — highlights the four-lens AI analysis.</p>
+    </div>
+    <div class="shot">
+      <img src="./assets/forcelens_byok.png" alt="BYOK settings">
+      <p><strong>BYOK Settings</strong> — proof of the security story for enterprise clients.</p>
+    </div>
+    <div class="shot">
+      <img src="./assets/forcelens_tab_ai_pulse.png" alt="AI Pulse">
+      <p><strong>AI Pulse</strong> — the AI explanation feature in action.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll("button.copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = document.getElementById(btn.dataset.target).textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var original = btn.textContent;
+        btn.textContent = "Copied";
+        btn.classList.add("done");
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.classList.remove("done");
+        }, 1600);
+      });
+    });
+  });
+</script>
+</body>
+</html>

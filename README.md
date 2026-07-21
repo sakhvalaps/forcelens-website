@@ -131,7 +131,7 @@ ForceLens adds a single, powerful **"Inspect Log"** button in the three places y
 ## ✦ FAQ
 
 **Q: Is it really free?**  
-A: Yes! All log capturing, tree building, and flow analyzing modules are completely free and run locally. The only cost is the API usage fees charged directly by your chosen AI provider if you decide to configure your own key for the AI summaries.
+A: Yes. Smart Capture, the execution tree, Order of Execution, Flow analysis, local history, and all 12 workspace lenses are free forever — they run entirely on your machine, so there is no server for us to charge for. The only cost is the API usage fee charged directly by your chosen AI provider, and only if you configure your own key for the AI summaries.
 
 **Q: Is my code or data safe?**  
 A: Absolutely. ForceLens has no centralized backend server. Logs are parsed on your local machine and stored inside Chrome’s secure local extension storage. Outbound AI requests connect directly from your browser to the AI provider endpoint with zero middlemen.
