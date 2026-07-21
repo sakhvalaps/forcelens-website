@@ -4978,6 +4978,7 @@ footer.main-footer {
 .guide-main h1 { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; margin: 0 0 16px; }
 .guide-main h2 { font-size: 26px; font-weight: 700; margin: 44px 0 12px; letter-spacing: -0.01em; }
 .guide-main h3 { font-size: 19px; font-weight: 700; margin: 28px 0 8px; }
+.guide-main h4 { font-size: 16.5px; font-weight: 700; margin: 22px 0 6px; color: var(--text-primary); }
 .guide-main p, .guide-main li { color: var(--text-secondary); line-height: 1.75; font-size: 16px; }
 .guide-main ul, .guide-main ol { padding-left: 24px; margin: 12px 0; }
 .guide-main li { margin: 6px 0; }
