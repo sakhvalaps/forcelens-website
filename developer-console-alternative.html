@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_execution_tree.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -54,14 +54,19 @@
         "mainEntity": [
           { "@type": "Question", "name": "What is the best alternative to the Salesforce Developer Console for log analysis?", "acceptedAnswer": { "@type": "Answer", "text": "It depends on the job. For visual log analysis without leaving Salesforce, ForceLens (free Chrome extension) adds one-click capture, an execution tree, order of execution, and SOQL/CPU/limit breakdowns. For flame-graph timing analysis in VS Code, the Apex Log Analyzer extension from Certinia is excellent. For stepping through variable state, use Salesforce's Apex Replay Debugger." } },
           { "@type": "Question", "name": "Is the Salesforce Developer Console being retired?", "acceptedAnswer": { "@type": "Answer", "text": "Salesforce has signaled its investment is in VS Code / Code Builder tooling rather than the Developer Console, and the console has seen little development for years. It still works, but most teams supplement it with modern tools for log analysis and debugging." } },
-          { "@type": "Question", "name": "Can I analyze Salesforce debug logs without VS Code?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Browser-based tools like ForceLens analyze logs directly in Chrome, inside your Salesforce tab — no CLI, no local project, no IDE setup. That makes them practical for admins and consultants as well as developers." } }
+          { "@type": "Question", "name": "Can I analyze Salesforce debug logs without VS Code?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Browser-based tools like ForceLens analyze logs directly in Chrome, inside your Salesforce tab — no CLI, no local project, no IDE setup. That makes them practical for admins and consultants as well as developers." } },
+          { "@type": "Question", "name": "ForceLens or Apex Log Analyzer - which should I use?", "acceptedAnswer": { "@type": "Answer", "text": "They suit different workflows. Apex Log Analyzer is the stronger performance profiler, offering a best-in-class flame chart, detailed call-tree metrics and non-selective query detection, but it runs inside VS Code. ForceLens works in the browser tab your org is already open in, captures the log in one click, and reconstructs the declarative order of execution, which no other tool provides. Developers working in VS Code all day should use Apex Log Analyzer; those working mainly in the org will save more time with ForceLens, and many people use both." } },
+          { "@type": "Question", "name": "Is the Apex Replay Debugger a live debugger?", "acceptedAnswer": { "@type": "Answer", "text": "No. You capture a debug log with checkpoints enabled and then step through that recording afterwards, since execution has already completed. It is the only tool in this comparison that shows variable state line by line, but it requires verbose logging, which risks hitting the 20 MB log cap on large transactions. Scoping a class-level trace flag first usually makes replay workable." } },
+          { "@type": "Question", "name": "Do I need a paid tool for Salesforce debug log analysis?", "acceptedAnswer": { "@type": "Answer", "text": "No. Every tool in this comparison is free. The Developer Console and Apex Replay Debugger are provided by Salesforce, Apex Log Analyzer is open source under the BSD 3-Clause licence, and ForceLens is free with optional AI features that use your own API key. Cost is not a useful differentiator in this category; workflow fit is." } },
+          { "@type": "Question", "name": "Which Salesforce tool shows the order of execution?", "acceptedAnswer": { "@type": "Answer", "text": "Only ForceLens reconstructs the order of execution from a real debug log. The Developer Console, Apex Replay Debugger and Apex Log Analyzer all analyse Apex execution through call trees, timings and variable state, but none lays out the declarative save sequence of before-save flows, triggers, validation rules, workflow rules and after-save flows in the order they actually fired." } },
+          { "@type": "Question", "name": "Can I use these debugging tools against a production org?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, though the caution belongs to the logging rather than the tools. Verbose trace flags on a busy production org can generate enough log volume to disable trace flags org-wide, so keep debug levels low and scope the flag to a narrow window around a known reproduction. This applies equally regardless of which analyzer you use." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -103,15 +108,27 @@
 
     <h3>1. Developer Console (built-in)</h3>
     <p>Still the zero-install baseline: open logs, run anonymous Apex, execute SOQL, see raw checkpoints. Its log viewer offers a raw event list and basic tree/performance panels, but no aggregation, no order-of-execution reconstruction, and a dated UI that opens in a separate window. <strong>Use it for:</strong> quick anonymous Apex and ad-hoc queries. <strong>Pain:</strong> reading any log longer than a few hundred lines.</p>
+    <p>Two things it does that nothing else on this page replaces. The <strong>Query Editor with Query Plan</strong> is the only place to see how Salesforce's optimizer will execute a query — cost, cardinality, and whether it will use an index or fall back to a table scan. Anyone chasing <a href="/soql-query-optimization">non-selective queries</a> needs it regardless of which log tool they use. And <strong>Execute Anonymous</strong> remains the fastest way to run a snippet against an org without deploying anything.</p>
+    <p>Its weaknesses are structural rather than cosmetic. The log viewer's filter panel hides lines rather than summarising them, so you still scroll. There is no way to answer "how many times did this query run" without counting. And opening the Console creates a trace flag using the <code>SFDC_DevConsole</code> debug level, which frequently explains why a log contains different detail than the levels you carefully configured in Setup.</p>
 
     <h3>2. Apex Replay Debugger (Salesforce Extensions for VS Code)</h3>
     <p>Salesforce's official answer to step-through debugging: record a log with a checkpoint-enabled trace, then "replay" it in VS Code with breakpoints and variable inspection. <strong>Use it for:</strong> inspecting variable state line by line in complex Apex. <strong>Pain:</strong> requires SF CLI + VS Code project setup, replay (not live) semantics, and no aggregate log views. Docs: <a href="https://developer.salesforce.com/tools/vscode/en/apex/replay-debugger" target="_blank" rel="noopener noreferrer">Apex Replay Debugger</a>.</p>
+    <p>The word "replay" is the important one and is often misunderstood. This is not a live debugger — you cannot pause a running transaction. You capture a log with checkpoints enabled, then step through that recording afterwards. Execution has already finished; you are navigating a recording of it.</p>
+    <p>That has a practical consequence worth planning around: <strong>the log must contain the detail you want to inspect.</strong> Replay requires verbose logging, which on a large transaction risks hitting the 20 MB cap — and a truncated log gives you an incomplete replay. Scoping a class-level trace flag, as described in <a href="/salesforce-debug-log-levels">debug log levels</a>, is usually necessary before replay is workable on anything substantial.</p>
+    <p>Within those constraints it is the only tool here that answers "what was this variable holding at line 214", which for genuine logic bugs is sometimes the only question that matters.</p>
 
     <h3>3. Apex Log Analyzer (Certinia, VS Code extension)</h3>
-    <p>A genuinely excellent open-source flame-graph visualizer for Apex logs inside VS Code: timeline, call tree, database analysis. <strong>Use it for:</strong> deep performance work if you live in VS Code. <strong>Pain:</strong> requires the VS Code + CLI toolchain and getting the log file into it; no capture automation; no Flow-specific analysis; out of reach for most admins.</p>
+    <p>A genuinely excellent open-source (BSD 3-Clause) log visualizer for VS Code, and the strongest tool on this list for performance work. It provides an interactive flame chart with minimap navigation, a call tree showing self time and total time per method alongside SOQL/DML counts, an Apex Analysis view ranking the most expensive methods, and a Database Analysis view that flags slow queries and non-selective filters. Its <em>Log: Retrieve Apex Log And Show Analysis</em> command pulls logs directly from a connected org, so you are not restricted to local files, and flows do appear in its timeline.</p>
+    <p><strong>Use it for:</strong> deep performance profiling, especially when you want a flame chart and already work in VS Code. For pure CPU-hotspot analysis it is excellent and, in some respects, more detailed than what ForceLens offers.</p>
+    <p><strong>Pain:</strong> it requires the VS Code and CLI toolchain, which puts it out of reach for most admins and for anyone debugging in a browser-only context. It analyses logs rather than reconstructing the declarative order of execution, and it does not review Flow structure in Flow Builder. Its own documentation also makes a point worth repeating: truncated logs produce misleading analysis, and high debug levels inflate recorded execution times through logging overhead.</p>
 
     <h3>4. ForceLens (free Chrome extension)</h3>
     <p>ForceLens's premise is different: analysis should happen <em>where you already are</em> — the browser tab your org is open in. It adds "Inspect Log" buttons to the Debug Logs list, log detail pages and the Developer Console itself, plus one-click Smart Capture that creates the trace flag and opens the captured log analyzed. Twelve views: execution tree, order of execution, timeline, SOQL, DML, performance, limits, errors, and more — with optional AI explanations using your own key (Claude, GPT, Groq, OpenRouter), and Flow structural analysis from Flow Builder. Everything parses locally; logs never leave your machine (<a href="/privacy">Trust Center</a>). <strong>Use it for:</strong> everyday log analysis, order-of-execution questions, SOQL/CPU/limit hunting, Flow review — with zero setup. <strong>Not for:</strong> step-through variable inspection (that's the Replay Debugger's job) or writing code.</p>
+
+    <h3>5. Also worth knowing</h3>
+    <p>Two tools come up often in this conversation without being log analyzers, and it is worth being clear about what they do instead.</p>
+    <p><strong>Salesforce Inspector Reloaded</strong> is a browser extension for data work — inspecting and editing records, exporting and importing data, browsing metadata, and running quick SOQL. Many developers run it alongside a log tool because the jobs barely overlap: it answers "what does this record actually contain", not "what happened during the save".</p>
+    <p><strong>Code Builder</strong> is Salesforce's browser-hosted VS Code environment. It runs the same extensions as desktop VS Code, including Apex Log Analyzer and the Replay Debugger, without a local CLI install. If your objection to the VS Code tools is setup rather than the editor itself, Code Builder removes most of that friction — though it is a full IDE session rather than something you glance at mid-task.</p>
 
     <h2>Feature matrix</h2>
     <div class="guide-table-wrap">
@@ -120,12 +137,17 @@
       <tbody>
         <tr><td>Setup required</td><td>None</td><td>VS Code + CLI + project</td><td>VS Code + CLI</td><td>Install extension</td></tr>
         <tr><td>Works in browser</td><td>Yes (own window)</td><td>No</td><td>No</td><td>Yes, in your Salesforce tab</td></tr>
-        <tr><td>One-click log capture</td><td>No</td><td>No</td><td>No</td><td>Yes (Smart Capture)</td></tr>
-        <tr><td>Execution tree</td><td>Basic</td><td>No</td><td>Yes (flame graph)</td><td>Yes</td></tr>
+        <tr><td>Retrieve logs from the org</td><td>Yes</td><td>Yes</td><td>Yes (command)</td><td>Yes (one-click Smart Capture)</td></tr>
+        <tr><td>Creates the trace flag for you</td><td>Partially</td><td>No</td><td>No</td><td>Yes</td></tr>
+        <tr><td>Execution tree</td><td>Basic</td><td>No</td><td>Yes (flame chart)</td><td>Yes</td></tr>
+        <tr><td>Flame chart / timeline</td><td>Basic</td><td>No</td><td>Yes — best in class</td><td>Yes</td></tr>
         <tr><td>Order of execution view</td><td>No</td><td>No</td><td>No</td><td>Yes</td></tr>
         <tr><td>SOQL/DML aggregation</td><td>Partial</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Non-selective query detection</td><td>No</td><td>No</td><td>Yes</td><td>Partial</td></tr>
         <tr><td>Governor limits dashboard</td><td>Raw text</td><td>No</td><td>Partial</td><td>Yes</td></tr>
-        <tr><td>Flow analysis</td><td>No</td><td>No</td><td>No</td><td>Yes (log events + Flow Builder lenses)</td></tr>
+        <tr><td>Flow events in the log</td><td>Raw text</td><td>No</td><td>Yes (timeline)</td><td>Yes</td></tr>
+        <tr><td>Flow structural review (Flow Builder)</td><td>No</td><td>No</td><td>No</td><td>Yes (four lenses)</td></tr>
+        <tr><td>Open source</td><td>n/a</td><td>Yes</td><td>Yes (BSD 3-Clause)</td><td>No</td></tr>
         <tr><td>Step-through debugging</td><td>No</td><td>Yes</td><td>No</td><td>No</td></tr>
         <tr><td>AI explanations</td><td>No</td><td>No</td><td>No</td><td>Optional, your own key</td></tr>
         <tr><td>Usable by admins (no CLI)</td><td>Yes</td><td>No</td><td>No</td><td>Yes</td></tr>
@@ -143,11 +165,39 @@
       <li><strong>"Why did my Flow do that?"</strong> → ForceLens; see <a href="/salesforce-flow-debugging">Flow debugging</a>.</li>
     </ul>
 
+    <h3>Choose by role, not by feature list</h3>
+    <p>Feature matrices flatten a decision that is mostly about context. Where you work determines which tool is practical far more than any capability comparison does.</p>
+    <p><strong>Admins and consultants</strong> generally have no CLI, no local project, and often no permission to install developer tooling. The Developer Console and a browser extension are the realistic options, which is why the VS Code tools — technically excellent — are irrelevant to a large part of the ecosystem.</p>
+    <p><strong>Developers working in VS Code all day</strong> should install Apex Log Analyzer regardless of anything else on this page. The friction of leaving your editor is real, and having a flame chart a command away is worth more than a marginally better view elsewhere.</p>
+    <p><strong>Developers who spend most of their time in the org</strong> — configuring, testing, reproducing user-reported bugs — get more from a browser tool, because the alternative is exporting a log to a different application every time a question arises.</p>
+    <p><strong>Architects reviewing an unfamiliar org</strong> have a distinct problem: the question is not "why did this fail" but "what runs when this object is saved, and in what order". Order-of-execution reconstruction is the relevant capability, and it is the one thing no other tool here provides.</p>
+
+    <h3>Most teams end up using two</h3>
+    <p>The realistic outcome is not picking a winner. A common pairing is a browser tool for triage — capture the log, see the order of execution, check limits, identify roughly where the problem lives — and then a VS Code tool when the question narrows to specific timings or variable values.</p>
+    <p>That split reflects how debugging actually proceeds. Most time is spent working out <em>where</em> to look, which favours breadth and speed of capture. Once you know where, you need depth, which is where the flame chart or the replay debugger earns its setup cost. Tools optimised for one phase tend to be mediocre at the other, which is why the ecosystem has not converged on a single answer.</p>
+
+    <h2>What you give up leaving the Developer Console</h2>
+    <p>Worth stating plainly, because none of the alternatives replace all of it. The Console remains the only place with <strong>Execute Anonymous</strong>, the <strong>Query Editor and Query Plan</strong>, and checkpoint management for replay debugging. Whatever else you adopt, expect to keep it open for those three jobs — the alternatives here replace its log viewer, not the Console itself.</p>
+
+    <h2>When ForceLens is the wrong choice</h2>
+    <p>We build ForceLens, so treat the recommendations above with appropriate scepticism and weigh these cases seriously. There are situations where another tool on this page is genuinely better, and using the wrong one wastes your time.</p>
+    <p><strong>You need to inspect variable state line by line.</strong> Use the Apex Replay Debugger. It is the only tool here that lets you set breakpoints and step through execution examining what each variable held. ForceLens shows what happened and what it cost; it does not give you a debugger's view of memory.</p>
+    <p><strong>You are doing deep performance profiling in VS Code.</strong> Apex Log Analyzer's flame chart and call-tree metrics are excellent, and if you already live in VS Code the friction of leaving the editor may outweigh anything ForceLens offers. Its non-selective query detection is also more developed than ours.</p>
+    <p><strong>You need to write or deploy code.</strong> None of the log tools do this. VS Code with the Salesforce Extensions remains the development environment; these are diagnostic tools that sit alongside it.</p>
+    <p><strong>Your organisation prohibits browser extensions.</strong> A legitimate policy in many regulated environments. The VS Code tools install through a different channel and may be permitted where a Chrome extension is not.</p>
+    <p><strong>You require open-source software.</strong> Apex Log Analyzer is BSD 3-Clause licensed and auditable. ForceLens is not open source, though it runs entirely client-side and makes no server calls — verifiable in your browser's network tab, and documented in the <a href="/privacy">Trust Center</a>.</p>
+    <p>Where ForceLens is genuinely the better choice is narrower and worth stating plainly: <strong>you are working in the browser, you want the log captured without a Setup detour, and your question is about order of execution, governor limits, or Flow behaviour rather than line-by-line performance.</strong> That covers most everyday debugging, which is why we built it — but it is not everything, and these tools are complementary rather than competing. Many developers use ForceLens for triage and reach for one of the others when the question narrows.</p>
+
     <h2 id="faq">Frequently asked questions</h2>
     <div class="guide-faq">
       <details><summary>What's the best Developer Console alternative for log analysis?</summary><p>For in-browser visual log analysis, ForceLens; for flame-graph timing in VS Code, Apex Log Analyzer; for step-through variable inspection, the Apex Replay Debugger. All free, all complementary.</p></details>
       <details><summary>Is the Developer Console being retired?</summary><p>It still works, but Salesforce's investment has moved to VS Code and Code Builder tooling, and the console has seen little development for years. Most teams supplement it with modern log-analysis tools.</p></details>
       <details><summary>Can I analyze debug logs without VS Code?</summary><p>Yes — ForceLens runs entirely in Chrome inside your Salesforce tab, with no CLI or project setup, which also makes it practical for admins and consultants. See <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs</a> for the fundamentals.</p></details>
+      <details><summary>ForceLens or Apex Log Analyzer — which should I use?</summary><p>They suit different workflows. Apex Log Analyzer is the stronger performance profiler, with a best-in-class flame chart, detailed call-tree metrics and non-selective query detection — but it lives in VS Code. ForceLens works in the browser tab your org is already open in, captures the log in one click, and reconstructs the declarative order of execution, which no other tool here does. If you work in VS Code all day, install Apex Log Analyzer. If you work in the org, ForceLens will save you more time. Plenty of people use both.</p></details>
+      <details><summary>Is the Apex Replay Debugger a live debugger?</summary><p>No. You capture a log with checkpoints enabled, then step through that recording afterwards — execution has already completed. It is the only tool here that shows variable state line by line, but it requires verbose logging, which on a large transaction risks hitting the 20 MB cap. Scope a class-level trace flag first.</p></details>
+      <details><summary>Do I need a paid tool for Salesforce log analysis?</summary><p>No. Every tool compared here is free. The Developer Console and Apex Replay Debugger are Salesforce's own, Apex Log Analyzer is open source under BSD 3-Clause, and ForceLens is free with optional AI features that use your own API key. Cost is not a useful differentiator in this category; workflow fit is.</p></details>
+      <details><summary>Which tool shows the Salesforce order of execution?</summary><p>Only ForceLens reconstructs it from a real log. The others analyse Apex execution — call trees, timings, variable state — but do not lay out the declarative save sequence of before-save flows, triggers, validation rules, workflow and after-save flows in the order they actually fired. See <a href="/salesforce-order-of-execution">order of execution explained</a>.</p></details>
+      <details><summary>Can I use these tools against a production org?</summary><p>Yes, though the caution belongs to the logging rather than the tools. Verbose trace flags on a busy production org can generate enough volume to disable trace flags org-wide, so keep levels low and scope the flag to a narrow window around a known reproduction. That applies equally whichever analyzer you use.</p></details>
     </div>
 
     <div class="guide-cta">

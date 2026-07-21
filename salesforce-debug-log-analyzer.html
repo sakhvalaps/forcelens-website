@@ -40,7 +40,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_overview.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18",
+        "dateModified": "2026-07-21",
         "about": { "@id": "https://forcelens.vercel.app/#software" }
       },
       {
@@ -77,6 +77,26 @@
             "@type": "Question",
             "name": "Can it analyze Flow debug logs too?",
             "acceptedAnswer": { "@type": "Answer", "text": "Yes. Flow elements appear in debug logs as FLOW_* events, and ForceLens surfaces them in the execution tree and order of execution. It can also analyze a Flow's structure directly from Flow Builder through Developer, Business Analyst, QA and Security lenses." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I still need to know how to read Salesforce debug logs manually?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes, and it remains worth learning. An analyzer speeds up work you already understand, but it cannot tell you which question to ask. Knowing that FATAL_ERROR is the failure that ended the transaction while EXCEPTION_THROWN may be routine, or that a repeated line number indicates a query in a loop, is what makes any tool useful." }
+          },
+          {
+            "@type": "Question",
+            "name": "Why does my debug log not contain the event I expected?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Three usual causes: the relevant log category was set too low so the event was never written; the log exceeded the 20 MB cap and lines were dropped from the middle; or the work happened in a separate asynchronous transaction with its own log. Rule out all three before concluding the code did not run." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can a debug log analyzer show what a managed package is doing?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Only partly. You can see that a managed package consumed CPU time, queries and DML, because those count against the transaction's shared governor limits. The package's internal logic is not written to your debug log at any log level. When a package dominates a transaction, review its configuration or contact the vendor rather than analysing the log further." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is a debug log analyzer the same as a debugger?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. An analyzer reconstructs what already happened from a recorded log, which suits order of execution, governor limits and performance analysis. A debugger such as the Apex Replay Debugger lets you step through execution and inspect variable state line by line. Use an analyzer to locate the problem and a debugger when you need to see exactly what a variable contained." }
           }
         ]
       }
@@ -84,7 +104,7 @@
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -141,6 +161,26 @@
     </div>
     <p>For the full event catalog, see Salesforce's own <a href="https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_debugging_debug_log.htm" target="_blank" rel="noopener noreferrer">debug log documentation</a>. For a hands-on walkthrough of enabling and reading logs, see our tutorial: <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs step by step</a>.</p>
 
+    <h2>Start here: what are you actually debugging?</h2>
+    <p>Log analysis is faster when you know which question you are asking. Find your symptom below and go straight to the guide that covers it — each one includes the manual method as well as the tooling.</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Symptom</th><th>What to look at first</th><th>Guide</th></tr></thead>
+      <tbody>
+        <tr><td>"Too many SOQL queries: 101"</td><td>Repeated query text at the same line number</td><td><a href="/soql-query-optimization">SOQL optimization</a></td></tr>
+        <tr><td>"Apex CPU time limit exceeded"</td><td>Elapsed time between code unit pairs</td><td><a href="/salesforce-cpu-time-limit-exceeded">CPU time limit</a></td></tr>
+        <tr><td>"Apex heap size too large"</td><td>Heap checkpoints around large queries</td><td><a href="/apex-heap-size-limit">Heap size limit</a></td></tr>
+        <tr><td>A field was overwritten unexpectedly</td><td>Every automation that touched the record, in order</td><td><a href="/salesforce-order-of-execution">Order of execution</a></td></tr>
+        <tr><td>A Flow failed and the email is unclear</td><td><code>FLOW_ELEMENT_ERROR</code> and preceding elements</td><td><a href="/salesforce-flow-error-emails">Flow error emails</a></td></tr>
+        <tr><td>A Flow behaves differently in production</td><td>Flow events interleaved with triggers</td><td><a href="/salesforce-flow-debugging">Flow debugging</a></td></tr>
+        <tr><td>No log is being generated at all</td><td>Trace flag target and expiry</td><td><a href="/salesforce-debug-log-levels">Debug log levels</a></td></tr>
+        <tr><td>The log is truncated</td><td>Which categories are set too high</td><td><a href="/salesforce-debug-log-levels">Debug log levels</a></td></tr>
+        <tr><td>I do not know where to start</td><td>The three questions below</td><td><a href="/how-to-read-apex-debug-logs">How to read debug logs</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>If you are unsure which applies, three searches answer most questions in under a minute: <code>FATAL_ERROR</code> tells you what ended the transaction, the stack trace beneath it tells you where, and <code>LIMIT_USAGE_FOR_NS</code> tells you what the transaction cost. Everything else is detail.</p>
+
     <h2>Why raw logs are hard to read</h2>
     <ul>
       <li><strong>Volume.</strong> A single record save in a mature org can produce tens of thousands of lines: triggers, record-triggered flows, validation, roll-ups, and recursive re-entry all interleave.</li>
@@ -148,6 +188,15 @@
       <li><strong>No structure.</strong> The log is flat text. Nesting (which trigger called which class which ran which query) exists only implicitly, in matching <code>*_STARTED/*_FINISHED</code> pairs you have to track mentally.</li>
       <li><strong>No aggregation.</strong> "How many queries did this transaction run, and which one returned 50,000 rows?" requires you to count by hand.</li>
     </ul>
+    <p>The structural problem is worth seeing concretely. Nesting exists only as matched pairs, so working out what called what means tracking depth manually across thousands of lines:</p>
+    <code class="guide-code">CODE_UNIT_STARTED|AccountTrigger on Account trigger event BeforeUpdate
+  CODE_UNIT_STARTED|AccountService.validateAll
+    SOQL_EXECUTE_BEGIN|[42]|SELECT Id FROM Contact WHERE AccountId = :id
+    SOQL_EXECUTE_END|[42]|Rows:3
+  CODE_UNIT_FINISHED|AccountService.validateAll
+CODE_UNIT_FINISHED|AccountTrigger on Account trigger event BeforeUpdate</code>
+    <p>Real logs do not indent. Every line begins at column zero, the pairs are separated by hundreds of unrelated lines, and a trigger that re-enters produces a second identical block elsewhere in the file. Reconstructing the hierarchy is mechanical work that a parser does perfectly and a human does slowly and with errors.</p>
+    <p>Two further difficulties are less obvious but cost more time. <strong>Timestamps have low resolution</strong>, so many lines share the same wall-clock value and only the nanosecond elapsed counter is usable for measurement. And <strong>managed package code is largely invisible</strong> — other namespaces log at their own levels, so a package consuming most of your CPU may appear as a handful of opaque lines.</p>
 
     <h2>What a debug log analyzer does</h2>
     <p>An analyzer parses the event stream and rebuilds the structure a human actually needs:</p>
@@ -168,7 +217,51 @@
       <li><strong>Analyze through 12 lenses.</strong> Overview, Log Explorer, Execution Tree, Order of Execution, Apex Debug, AI Pulse, Errors, Timeline, DML, SOQL, Performance, and Limits.</li>
       <li><strong>Explain with your own AI key (optional).</strong> Bring a Claude, GPT, Groq, or OpenRouter key; calls go directly from your browser to that provider.</li>
     </ol>
+    <h3>Which view answers which question</h3>
+    <p>Twelve views sounds like a lot until you map them to questions. In practice you use two or three per investigation:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>View</th><th>Answers</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Overview</strong></td><td>Is this transaction healthy, and where is it closest to failing?</td></tr>
+        <tr><td><strong>Errors</strong></td><td>What actually ended the transaction, and what was merely caught?</td></tr>
+        <tr><td><strong>Order of Execution</strong></td><td>Which automation touched this record, in what sequence?</td></tr>
+        <tr><td><strong>Execution Tree</strong></td><td>What called what, and how deep does the nesting go?</td></tr>
+        <tr><td><strong>Limits</strong></td><td>Which governor limit is under pressure?</td></tr>
+        <tr><td><strong>SOQL</strong></td><td>Which query runs repeatedly, and which returns too many rows?</td></tr>
+        <tr><td><strong>DML</strong></td><td>What was written, how many rows, and did it cascade?</td></tr>
+        <tr><td><strong>Performance</strong></td><td>Which code unit consumed the most time?</td></tr>
+        <tr><td><strong>Timeline</strong></td><td>Where did the transaction's duration physically go?</td></tr>
+        <tr><td><strong>Apex Debug</strong></td><td>What did my own <code>System.debug()</code> statements print?</td></tr>
+        <tr><td><strong>Log Explorer</strong></td><td>The raw log, filtered and searchable, when you need the source text</td></tr>
+        <tr><td><strong>AI Pulse</strong></td><td>A plain-language explanation of what the log shows</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>A typical sequence: <strong>Overview</strong> to see whether limits or an exception caused the failure, then <strong>Errors</strong> or <strong>Limits</strong> to confirm, then whichever detail view matches — SOQL for query counts, Performance for CPU, Order of Execution for unexpected field changes. Log Explorer remains available throughout for the raw text, because a good analyzer should never prevent you from reading the underlying log.</p>
     <img src="/assets/forcelens_tab_order_of_execution.webp" alt="ForceLens order of execution view reconstructed from a Salesforce debug log" class="guide-img" width="1919" height="873" loading="lazy" decoding="async">
+
+    <h2>A complete investigation, start to finish</h2>
+    <p>Here is the whole workflow on a realistic problem: users report that saving an Opportunity intermittently fails, and the error mentions SOQL queries.</p>
+    <ol>
+      <li><strong>Capture the right transaction.</strong> Trace the user who reproduces it, not yourself, and keep levels moderate — <code>ApexCode: INFO</code>, <code>Database: INFO</code>, <code>ApexProfiling: INFO</code>. Verbose settings risk truncating the very log you need.</li>
+      <li><strong>Confirm what failed.</strong> Search <code>FATAL_ERROR</code>. Anything in <code>EXCEPTION_THROWN</code> that was caught and handled is noise; only the fatal error ended the transaction.</li>
+      <li><strong>Check the cost.</strong> Read <code>LIMIT_USAGE_FOR_NS</code>. Ninety-eight queries against a hundred confirms the diagnosis; low CPU and heap rule out the alternatives in one glance.</li>
+      <li><strong>Find the repetition.</strong> Look for the same query text at the same line number appearing dozens of times. That line is inside a loop, wherever the loop happens to live.</li>
+      <li><strong>Check for recursion first.</strong> Before touching the query, scan <code>CODE_UNIT_STARTED</code> for the same trigger appearing more than once. If it does, recursion is multiplying every query beneath it, and fixing that may resolve the count without any query changes.</li>
+      <li><strong>Read the stack trace bottom-up.</strong> The trace names the entry point last and the failing line first. The loop is usually in a caller, so the fix rarely belongs at the line that threw.</li>
+      <li><strong>Verify after the fix.</strong> Capture a second log and compare the limit summary. A change that moves queries from 98 to 12 is confirmed; one that moves them to 94 has not solved the problem.</li>
+    </ol>
+    <p>Step 7 is the one most often skipped, and the reason problems recur. A transaction sitting close to a limit will fail again as soon as data grows or another automation is added — <a href="/salesforce-governor-limits-explained">aim for half the budget</a>, not just below the cap.</p>
+
+    <h2>What log analysis cannot tell you</h2>
+    <p>An analyzer makes a log readable. It does not make the log contain more than it does, and knowing the boundaries saves you from chasing answers that were never in the file.</p>
+    <p><strong>Anything the log levels did not capture.</strong> If <code>Workflow</code> was low, your flows are absent — and their absence looks identical to them never having run. Before concluding something did not execute, confirm the relevant category was high enough. This is the single most common false conclusion in log debugging.</p>
+    <p><strong>Anything after truncation.</strong> A log that hit the 20 MB cap has lines removed from the middle. Always check for skip markers before treating a missing event as meaningful.</p>
+    <p><strong>Work in other transactions.</strong> Async jobs, batch chunks and platform event handlers each write their own log at their own time. A synchronous log ending cleanly tells you nothing about whether the queued work later succeeded.</p>
+    <p><strong>Managed package internals.</strong> You can see that a package consumed time and limits, but usually not what it did. When a package dominates a transaction, the productive route is its own configuration and its vendor, not deeper log analysis.</p>
+    <p><strong>Variable state you did not log.</strong> Even at <code>FINEST</code>, the log shows assignments rather than a full memory picture. For genuine step-through inspection of variable values, the Apex Replay Debugger is the right tool — see the comparison below.</p>
+    <p><strong>Why the data was wrong to begin with.</strong> A log explains what the code did with the input it received. If the input itself was wrong, the answer lies upstream in an integration, a data load, or a user action that a different transaction's log would show.</p>
 
     <h2>ForceLens vs. built-in Salesforce tools</h2>
     <div class="guide-table-wrap">
@@ -209,6 +302,22 @@
       <details>
         <summary>Can it analyze Flow debug logs too?</summary>
         <p>Yes. Flow elements appear in debug logs as <code>FLOW_*</code> events, and ForceLens surfaces them in the execution tree and order of execution. It can also analyze a Flow's structure directly from Flow Builder — see <a href="/salesforce-flow-debugging">Salesforce Flow debugging</a>.</p>
+      </details>
+      <details>
+        <summary>Do I still need to know how to read logs manually?</summary>
+        <p>Yes, and it remains worth learning. An analyzer speeds up work you understand; it cannot tell you which question to ask. Knowing that <code>FATAL_ERROR</code> is the failure and <code>EXCEPTION_THROWN</code> may be routine, or that a repeated line number means a loop, is what makes any tool useful. Our <a href="/how-to-read-apex-debug-logs">step-by-step guide</a> covers the manual method with no extension required.</p>
+      </details>
+      <details>
+        <summary>Why does my log not contain the event I expected?</summary>
+        <p>Three usual causes: the relevant log category was set too low, so the event was never written; the log exceeded 20 MB and lines were dropped from the middle; or the work happened in a separate asynchronous transaction with its own log. Rule out all three before concluding the code did not run.</p>
+      </details>
+      <details>
+        <summary>Can a log analyzer tell me what a managed package is doing?</summary>
+        <p>Only partly. You can see that a package consumed CPU, queries and DML, because those count against your transaction's shared limits. Its internal logic is not written to your log at any level. When a package dominates a transaction, look at its configuration or raise it with the vendor rather than analysing harder.</p>
+      </details>
+      <details>
+        <summary>Is a log analyzer the same as a debugger?</summary>
+        <p>No, and the difference matters when choosing a tool. An analyzer reconstructs what already happened from a recorded log — good for order of execution, limits, and performance. A debugger such as the Apex Replay Debugger lets you step through execution inspecting variable state line by line. Use the analyzer to find where the problem is, and the debugger when you need to see exactly what a variable held.</p>
       </details>
     </div>
 
