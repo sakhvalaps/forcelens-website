@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_tab_order_of_execution.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,20 @@
           { "@type": "Question", "name": "What is the Salesforce order of execution?", "acceptedAnswer": { "@type": "Answer", "text": "It's the fixed sequence of steps Salesforce runs when a record is saved: system validation, before-save record-triggered flows, before triggers, validation rules, duplicate rules, the save (uncommitted), after triggers, assignment/auto-response/workflow rules, escalation rules, after-save record-triggered flows, entitlement rules, roll-up summary recalculation, and finally the commit followed by post-commit logic like emails and async jobs." } },
           { "@type": "Question", "name": "Do before-save flows run before or after triggers?", "acceptedAnswer": { "@type": "Answer", "text": "Before-save record-triggered flows run BEFORE before triggers. Sequence at the start of a save: system validation, then before-save flows, then before triggers, then validation rules." } },
           { "@type": "Question", "name": "Why does my trigger fire twice on one save?", "acceptedAnswer": { "@type": "Answer", "text": "Usually because a workflow rule field update, an after-save flow update to the same record, or another trigger's DML re-saved the record — which re-runs part of the order of execution, including update triggers (workflow field updates re-fire before and after update triggers one additional time). A debug log shows the exact re-entry point." } },
-          { "@type": "Question", "name": "How can I see the order of execution in my org?", "acceptedAnswer": { "@type": "Answer", "text": "Capture a debug log of the save and read the sequence of CODE_UNIT_STARTED, FLOW_START_INTERVIEW, VALIDATION_RULE and WF_RULE events — or open the log in ForceLens, whose Order of Execution view reconstructs the sequence visually from those events." } }
+          { "@type": "Question", "name": "How can I see the order of execution in my org?", "acceptedAnswer": { "@type": "Answer", "text": "Capture a debug log of the save and read the sequence of CODE_UNIT_STARTED, FLOW_START_INTERVIEW, VALIDATION_RULE and WF_RULE events — or open the log in ForceLens, whose Order of Execution view reconstructs the sequence visually from those events." } },
+          { "@type": "Question", "name": "Why is my Salesforce validation rule not firing?", "acceptedAnswer": { "@type": "Answer", "text": "Most often a workflow field update changed the value after validation ran. Validation rules execute at step 5 of the order of execution. When a workflow field update re-fires the update triggers, Salesforce documents that custom validation rules, flows, duplicate rules, Process Builder processes and escalation rules are not run again, so the workflow can write a value the validation rule would have rejected." } },
+          { "@type": "Question", "name": "Why can't I get the record Id in a before insert trigger?", "acceptedAnswer": { "@type": "Answer", "text": "Because the Id does not exist yet. The record is saved to the database at step 7 of the order of execution, while before triggers run at step 4. If you need the record Id, for example to create related child records, perform that work in an after insert trigger instead." } },
+          { "@type": "Question", "name": "Are before-save flows faster than after-save flows in Salesforce?", "acceptedAnswer": { "@type": "Answer", "text": "Substantially, for same-record field updates. A before-save record-triggered flow modifies the record in memory before it is written, so it costs no additional DML. An after-save flow updating the same record requires another save, which re-enters the save sequence and re-fires update triggers. Moving same-record field updates from after-save to before-save is one of the highest-value optimisations in a heavily automated org." } },
+          { "@type": "Question", "name": "In what order do multiple triggers on the same object run?", "acceptedAnswer": { "@type": "Answer", "text": "The order is not guaranteed. Salesforce documents that if more than one trigger is defined on an object for the same event, the order of trigger execution isn't guaranteed, and it can change between deployments. The standard remedy is one trigger per object that delegates to a handler class, so execution order is controlled explicitly in code." } },
+          { "@type": "Question", "name": "Do roll-up summary fields fire the parent record's triggers?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. At steps 16 and 17 the parent and then the grandparent recalculate roll-up summary fields, and each parent record goes through the full save procedure — its triggers, workflow rules and flows all execute. This is why updating one child record can cascade into several complete save sequences that all share a single set of governor limits." } },
+          { "@type": "Question", "name": "What happens to asynchronous Apex jobs if the transaction rolls back?", "acceptedAnswer": { "@type": "Answer", "text": "They never run. Asynchronous Apex is enqueued during the transaction but only dispatched after the commit at step 20, so a rollback discards the queued work. Emails behave the same way, which is why a save that fails cannot send a confirmation email." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -95,30 +101,106 @@
     <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
 
     <div class="guide-answer">
-      <p>When a record is saved, Salesforce runs a <strong>fixed sequence</strong>: system validation → before-save flows → before triggers → validation rules → duplicate rules → save (uncommitted) → after triggers → assignment, auto-response and workflow rules → escalation rules → after-save flows → entitlements → roll-up summaries → commit → post-commit logic (emails, async jobs). Knowing this order explains most "why did my field get overwritten?" mysteries.</p>
+      <p>When a record is saved, Salesforce runs a <strong>fixed sequence of 20 steps</strong>: system validation → before-save flows → before triggers → validation rules → duplicate rules → save (uncommitted) → after triggers → assignment, auto-response and workflow rules → escalation rules → after-save flows → entitlements → roll-up summaries → sharing → commit → post-commit logic (emails, async jobs). Knowing this order explains most "why did my field get overwritten?" and "why didn't my validation rule fire?" mysteries.</p>
     </div>
 
+    <h2>The sequence at a glance</h2>
+    <p>The full save is twenty steps, but they group into four phases. Learn the phases first — almost every real-world question is answered by knowing which phase something belongs to:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Phase</th><th>Steps</th><th>What happens</th><th>Record has an Id?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1. Before save</strong></td><td>1–6</td><td>Load, before-save flows, before triggers, validation, duplicate rules</td><td>No (on insert)</td></tr>
+        <tr><td><strong>2. Saved, not committed</strong></td><td>7–8</td><td>Record written to database, after triggers run</td><td>Yes</td></tr>
+        <tr><td><strong>3. Declarative automation</strong></td><td>9–18</td><td>Assignment, workflow, flows, entitlements, roll-ups, sharing</td><td>Yes</td></tr>
+        <tr><td><strong>4. Commit and after</strong></td><td>19–20</td><td>Everything made permanent, then email and async work</td><td>Yes</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Two rules follow directly from this table and explain most confusion. <strong>You cannot access the record's Id in a before-insert trigger</strong> — it does not exist until step 7. And <strong>anything in phases 1–3 can still be rolled back</strong>; only step 19 makes it real.</p>
+
     <h2>The full sequence for a record save</h2>
+    <p>Salesforce's <a href="https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_order_of_execution.htm" target="_blank" rel="noopener noreferrer">official order-of-execution reference</a> documents these twenty steps. Where the wording matters, it is quoted directly:</p>
+
+    <h3>Phase 1 — Before the record is saved</h3>
     <ol>
-      <li><strong>Load / initialize.</strong> The original record is loaded (or initialized for insert) and new field values are overwritten onto it.</li>
-      <li><strong>System validation.</strong> Required fields, field formats, maximum lengths, foreign keys. (For UI saves, layout-level rules run too.)</li>
-      <li><strong>Before-save record-triggered flows.</strong> Fast same-record updates, no extra save needed.</li>
-      <li><strong>Before triggers</strong> (<code>before insert/update/delete</code>).</li>
-      <li><strong>System validation again + custom validation rules.</strong> Your validation rules run <em>after</em> before triggers — so a before trigger can fix data that would otherwise fail validation.</li>
-      <li><strong>Duplicate rules.</strong> A blocking duplicate rule aborts the save here.</li>
-      <li><strong>Record saved to the database — but not committed.</strong> IDs exist now; nothing is permanent yet.</li>
-      <li><strong>After triggers</strong> (<code>after insert/update/...</code>).</li>
-      <li><strong>Assignment rules</strong> (Leads/Cases), then <strong>auto-response rules</strong>.</li>
-      <li><strong>Workflow rules.</strong> ⚠️ If a workflow <em>field update</em> changes the record, <strong>before and after update triggers fire one more time</strong> (only once more — not infinitely).</li>
-      <li><strong>Escalation rules</strong> (Cases).</li>
-      <li><strong>After-save record-triggered flows</strong> (and legacy processes). Updates to the same record here re-enter the save sequence.</li>
-      <li><strong>Entitlement rules.</strong></li>
-      <li><strong>Roll-up summaries &amp; cross-object formulas.</strong> Parent (and grandparent) records recalculate and save — running <em>their</em> triggers.</li>
-      <li><strong>Criteria-based sharing evaluation.</strong></li>
-      <li><strong>Commit.</strong> Everything above succeeds or the whole transaction rolls back.</li>
-      <li><strong>Post-commit logic.</strong> Emails send, and queued async work (future methods, queueables) is enqueued to run in separate transactions.</li>
+      <li><strong>Load the original record</strong> from the database, or initialise it for an insert or upsert.</li>
+      <li><strong>Load the new field values</strong> from the request, overwriting the old ones. System validation checks run here: required fields, field formats, maximum field lengths, and foreign keys.</li>
+      <li><strong>Before-save record-triggered flows</strong> execute. These modify the record in memory with no additional DML, which makes them the fastest way to set a field on the record being saved.</li>
+      <li><strong>All before triggers</strong> execute (<code>before insert</code>, <code>before update</code>, <code>before delete</code>).</li>
+      <li><strong>Most system validation runs again</strong>, along with your <strong>custom validation rules</strong>. This ordering is important: validation runs <em>after</em> before triggers, so a before trigger can correct data that would otherwise fail validation.</li>
+      <li><strong>Duplicate rules</strong> execute. As the docs put it: "If the duplicate rule identifies the record as a duplicate and uses the block action, the record isn't saved."</li>
     </ol>
-    <p>This is the standard sequence as documented in the official <a href="https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_order_of_execution.htm" target="_blank" rel="noopener noreferrer">Salesforce order-of-execution reference</a> — worth bookmarking, since Salesforce occasionally adjusts details between releases.</p>
+
+    <h3>Phase 2 — Saved to the database, not yet committed</h3>
+    <ol start="7">
+      <li><strong>The record is saved to the database, but not committed.</strong> Record Ids exist from this point on. Nothing is permanent yet.</li>
+      <li><strong>All after triggers</strong> execute (<code>after insert</code>, <code>after update</code>, <code>after delete</code>).</li>
+    </ol>
+
+    <h3>Phase 3 — Declarative automation</h3>
+    <ol start="9">
+      <li><strong>Assignment rules</strong> execute (Leads and Cases).</li>
+      <li><strong>Auto-response rules</strong> execute (Leads and Cases).</li>
+      <li><strong>Workflow rules</strong> execute. This is the step with the biggest consequence for Apex developers — see the section below.</li>
+      <li><strong>Escalation rules</strong> execute (Cases).</li>
+      <li><strong>Process Builder processes and workflow-launched flows</strong> execute. The documentation notes these run in no guaranteed order relative to one another.</li>
+      <li><strong>After-save record-triggered flows</strong> execute. Updates made here to the same record re-enter the save sequence.</li>
+      <li><strong>Entitlement rules</strong> execute.</li>
+      <li><strong>Roll-up summary fields on the parent</strong> recalculate. The parent record then "goes through save procedure" — meaning the parent's own triggers, workflow and flows all fire.</li>
+      <li><strong>Roll-up summary fields on the grandparent</strong> recalculate, and the grandparent likewise goes through its full save procedure.</li>
+      <li><strong>Criteria-based sharing</strong> evaluation runs.</li>
+    </ol>
+
+    <h3>Phase 4 — Commit and post-commit</h3>
+    <ol start="19">
+      <li><strong>All DML operations are committed</strong> to the database. Up to this moment, any failure rolls back everything.</li>
+      <li><strong>Post-commit logic executes:</strong> emails send, asynchronous Apex jobs are enqueued, and asynchronous flow paths run — each in its own separate transaction.</li>
+    </ol>
+    <p>Steps 16 and 17 are where transactions quietly become expensive. A roll-up on a parent triggers a complete save procedure for that parent, which can fire its own triggers and flows, which may update <em>their</em> parents. A single child record update can cascade through several full save sequences, all sharing one set of <a href="/salesforce-governor-limits-explained">governor limits</a>.</p>
+
+    <h2>The workflow field update re-fire</h2>
+    <p>This one detail causes more confusion than the rest of the sequence combined, so it is worth quoting exactly. When a workflow rule performs a field update, Salesforce:</p>
+    <p><em>"Executes before update triggers and after update triggers, regardless of the record operation (insert or update), one more time (and only one more time)."</em></p>
+    <p>Two consequences follow, and they pull in opposite directions.</p>
+    <p><strong>Your update triggers run twice on a single save.</strong> Not because of a bug in your code — this is documented, intended behaviour. If your trigger is not idempotent, any logic that increments a counter, appends to a field, or sends a notification will do it twice.</p>
+    <p><strong>Validation does not run again.</strong> The docs are explicit that "custom validation rules, flows, duplicate rules, processes built with Process Builder, and escalation rules aren't run again" during this re-execution. This is the direct answer to the most common question on this page: <em>a workflow field update can write a value that your validation rules would have rejected</em>, because validation already ran at step 5 and does not get a second chance.</p>
+    <p>If a validation rule seems to be ignored, check for a workflow field update on that object before assuming the rule is wrong.</p>
+
+    <h2>Where to put your logic</h2>
+    <p>Most order-of-execution problems are really placement problems. This table answers the question directly:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>You want to…</th><th>Use</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Set a field on the record being saved</td><td>Before-save flow, or before trigger</td><td>No extra DML — the record has not been written yet</td></tr>
+        <tr><td>Default or clean up incoming data</td><td>Before trigger</td><td>Runs before validation, so it can fix data that would fail</td></tr>
+        <tr><td>Create or update <em>related</em> records</td><td>After trigger</td><td>The record has an Id, so children can reference it</td></tr>
+        <tr><td>Validate across multiple records</td><td>Before trigger with <code>addError()</code></td><td>Blocks the save with a field-level message</td></tr>
+        <tr><td>Call an external system</td><td>Queueable from an after trigger</td><td>Callouts are blocked while DML is uncommitted</td></tr>
+        <tr><td>Send an email on success</td><td>Post-commit logic, or async</td><td>Should not send if the transaction rolls back</td></tr>
+        <tr><td>React to a roll-up value</td><td>Async, or a trigger on the parent</td><td>Roll-ups recalculate at steps 16–17, after your after trigger</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The single most valuable line here is the first. A <strong>before-save flow updating its own record costs no DML at all</strong>, because the record is still in memory. The same change made in an after-save flow requires a full additional save — re-entering the sequence, re-firing update triggers, and re-spending limits. Salesforce measures before-save flows as substantially faster for exactly this reason, and moving same-record field updates from after-save to before-save is one of the highest-value optimisations available in a heavily automated org.</p>
+
+    <h2>Multiple triggers on one object</h2>
+    <p>The documentation is unambiguous: <em>"If more than one trigger is defined on an object for the same event, the order of trigger execution isn't guaranteed."</em></p>
+    <p>This is not a theoretical concern. Two triggers on Account, both <code>before update</code>, may run in either order — and that order can change between deployments or releases. If one sets a field the other reads, the behaviour is genuinely undefined.</p>
+    <p>The remedy is the widely adopted <strong>one trigger per object</strong> pattern: a single trigger that delegates to a handler class, where you control sequencing explicitly in code.</p>
+    <code class="guide-code">trigger AccountTrigger on Account (before insert, before update,
+                                  after insert, after update) {
+    AccountTriggerHandler handler = new AccountTriggerHandler();
+
+    if (Trigger.isBefore &amp;&amp; Trigger.isUpdate) {
+        handler.beforeUpdate(Trigger.new, Trigger.oldMap);
+    }
+    if (Trigger.isAfter &amp;&amp; Trigger.isUpdate) {
+        handler.afterUpdate(Trigger.new, Trigger.oldMap);
+    }
+}</code>
+    <p>Beyond determinism, this makes the debug log dramatically easier to read — one <code>CODE_UNIT_STARTED</code> per object per event, instead of several interleaved in an order nobody chose.</p>
 
     <h2>The consequences that bite people</h2>
     <ul>
@@ -129,8 +211,43 @@
       <li><strong>Recursion cascades</strong> — trigger updates parent → parent trigger updates children → repeat. Each hop re-spends <a href="/salesforce-governor-limits-explained">governor limits</a> and <a href="/salesforce-cpu-time-limit-exceeded">CPU</a>.</li>
     </ul>
 
+    <h3>Worked example: the field that keeps reverting</h3>
+    <p>A support ticket that appears in every org eventually. A user sets <code>Priority = High</code>, saves, and the field shows <code>Medium</code> afterwards. Nothing in the UI explains it.</p>
+    <p>Walking the sequence identifies the culprit quickly:</p>
+    <ol>
+      <li>The user's value arrives at step 2 and is written onto the record.</li>
+      <li>A before-save flow at step 3 or a before trigger at step 4 could overwrite it — check these first, since they act on the in-memory record and leave no separate DML trace.</li>
+      <li>Validation at step 5 sees whatever those produced, not what the user typed.</li>
+      <li>A workflow field update at step 11 could overwrite it <em>after</em> validation, and validation does not re-run to object.</li>
+      <li>An after-save flow at step 14 could update the record again, re-entering the sequence.</li>
+    </ol>
+    <p>In the debug log, search for the field name. The last write before <code>EXECUTION_FINISHED</code> wins. If a <code>WF_FIELD_UPDATE</code> event names your field, you have the answer — and it also explains why validation did not stop it.</p>
+
+    <h3>Worked example: the callout that will not run</h3>
+    <p>An after-insert trigger performs a callout and fails with <code>You have uncommitted work pending</code>. The order of execution explains it precisely: after triggers run at step 8, but the commit does not happen until step 19. Salesforce will not hold an open database transaction while waiting on an external system.</p>
+    <p>The fix is to defer the callout past the commit by enqueuing a Queueable that implements <code>Database.AllowsCallouts</code>. It runs at step 20 in its own transaction, with the DML safely committed. This is also why the callout correctly never fires when the save fails — a rolled-back transaction discards the queued job.</p>
+
     <h2>Seeing the real order in your own org</h2>
     <p>The list above is the theory. Your org's reality — which of <em>your</em> flows, triggers and rules ran, in which order, for a specific save — is written in the debug log as a sequence of <code>CODE_UNIT_STARTED</code>, <code>FLOW_START_INTERVIEW</code>, <code>VALIDATION_RULE</code> and <code>WF_RULE_*</code> events. Reading that interleaving by hand works (see <a href="/how-to-read-apex-debug-logs">how to read Apex debug logs</a>) but is slow.</p>
+    <h3>Which log event corresponds to which step</h3>
+    <p>Use this to translate the sequence above into what you are actually looking at in a log:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Step</th><th>Log event to search for</th></tr></thead>
+      <tbody>
+        <tr><td>Before-save flow (3)</td><td><code>FLOW_START_INTERVIEW</code> before any trigger code unit</td></tr>
+        <tr><td>Before / after triggers (4, 8)</td><td><code>CODE_UNIT_STARTED</code> naming the trigger and its event</td></tr>
+        <tr><td>Validation rules (5)</td><td><code>VALIDATION_RULE</code>, <code>VALIDATION_FORMULA</code>, <code>VALIDATION_PASS</code>/<code>FAIL</code></td></tr>
+        <tr><td>Duplicate rules (6)</td><td><code>DUPLICATE_DETECTION_BEGIN</code></td></tr>
+        <tr><td>Workflow rules (11)</td><td><code>WF_RULE_EVAL_BEGIN</code>, <code>WF_FIELD_UPDATE</code></td></tr>
+        <tr><td>After-save flow (14)</td><td><code>FLOW_START_INTERVIEW</code> after the after-trigger code unit</td></tr>
+        <tr><td>Commit (19)</td><td><code>EXECUTION_FINISHED</code> with no <code>FATAL_ERROR</code> above it</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Two signatures are worth learning to recognise instantly. <strong>A <code>WF_FIELD_UPDATE</code> followed by a second <code>CODE_UNIT_STARTED</code> for the same trigger</strong> is the documented re-fire from step 11 — not a bug. And <strong>the same trigger appearing three or more times</strong> is genuine recursion, which needs a guard.</p>
+    <p>Remember that the log shows only what your log levels captured. Flow events require the <strong>Workflow</strong> category to be raised — a detail that catches people out, since the name does not mention flows. If you are seeing triggers but no flows, that is almost always why; see <a href="/salesforce-debug-log-levels">debug log levels explained</a>.</p>
+
     <p>This is ForceLens's signature feature: its <strong>Order of Execution</strong> view reconstructs the diagram from your actual log — every trigger, flow, validation and workflow in the order they really fired, including re-entries. The whiteboard drawing, generated from production truth.</p>
     <img src="/assets/forcelens_tab_order_of_execution.webp" alt="ForceLens Order of Execution view reconstructing a Salesforce record save from a debug log" class="guide-img" width="1919" height="873" loading="lazy" decoding="async">
 
@@ -140,6 +257,12 @@
       <details><summary>Do before-save flows run before or after triggers?</summary><p>Before — the start of the sequence is: system validation → before-save flows → before triggers → validation rules.</p></details>
       <details><summary>Why does my trigger fire twice on one save?</summary><p>A workflow field update or a same-record after-save flow update re-saved the record, re-firing update triggers. The debug log shows the exact re-entry.</p></details>
       <details><summary>How can I see the order of execution for a real save?</summary><p>Capture a debug log of the save and follow the event sequence — or open it in ForceLens, which reconstructs the order visually.</p></details>
+      <details><summary>Why is my validation rule not firing?</summary><p>Most often a workflow field update changed the value after validation ran. Validation rules execute at step 5, and when a workflow field update re-fires the update triggers, Salesforce documents that "custom validation rules, flows, duplicate rules, processes built with Process Builder, and escalation rules aren't run again". The workflow can therefore write a value your rule would have rejected.</p></details>
+      <details><summary>Why can't I get the record Id in a before insert trigger?</summary><p>Because it does not exist yet. The record is written to the database at step 7, and before triggers run at step 4. If you need the Id — to create child records, for example — do that work in an after insert trigger.</p></details>
+      <details><summary>Are before-save flows faster than after-save flows?</summary><p>Substantially, for same-record field updates. A before-save flow modifies the record in memory before it is written, costing no additional DML. An after-save flow updating the same record requires another save, which re-enters the sequence and re-fires update triggers. Moving same-record updates to before-save is one of the highest-value optimisations in an automated org.</p></details>
+      <details><summary>In what order do multiple triggers on the same object run?</summary><p>Undefined. Salesforce documents that "if more than one trigger is defined on an object for the same event, the order of trigger execution isn't guaranteed", and it can change between deployments. Use one trigger per object delegating to a handler class so you control the sequence yourself.</p></details>
+      <details><summary>Do roll-up summary fields fire the parent record's triggers?</summary><p>Yes. At steps 16 and 17 the parent and grandparent recalculate and each "goes through save procedure" — their triggers, workflow rules and flows all execute. This is why one child update can cascade into several complete save sequences, all sharing a single set of governor limits.</p></details>
+      <details><summary>What happens to async jobs if the transaction rolls back?</summary><p>They never run. Asynchronous Apex is enqueued during the transaction but only dispatched after commit at step 20, so a rollback discards it. Emails behave the same way, which is why a failed save cannot send a confirmation email.</p></details>
     </div>
 
     <div class="guide-cta">
