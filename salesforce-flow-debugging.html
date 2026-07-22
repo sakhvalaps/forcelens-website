@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_flow_analyzer.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,19 @@
           { "@type": "Question", "name": "How do I debug a Salesforce Flow?", "acceptedAnswer": { "@type": "Answer", "text": "Three ways: (1) Flow Builder's Debug mode, which runs the flow with chosen inputs and shows each element's path; (2) debug logs, where FLOW_START_INTERVIEW and FLOW_ELEMENT events record what actually ran in production context alongside triggers and validation; (3) flow error emails, which contain the failing element and message. For real record saves, debug logs are the source of truth." } },
           { "@type": "Question", "name": "Do Flows appear in Salesforce debug logs?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. With the Workflow log category at FINE or FINER, logs record FLOW_CREATE_INTERVIEW, FLOW_START_INTERVIEW, FLOW_ELEMENT_BEGIN/END for each element, FLOW_BULK_ELEMENT events, and FLOW_ELEMENT_ERROR when an element fails — interleaved with triggers so you see the true order of execution." } },
           { "@type": "Question", "name": "When do record-triggered flows run in the order of execution?", "acceptedAnswer": { "@type": "Answer", "text": "Before-save flows run after before triggers' system validation step, before the record is written; after-save flows run late in the order — after triggers, assignment rules and workflow, shortly before commit. An after-save flow that updates its own record causes the whole order of execution to run again." } },
-          { "@type": "Question", "name": "What is the most common cause of Flow errors?", "acceptedAnswer": { "@type": "Answer", "text": "Unhandled null/no-record outcomes: a Get Records element finds nothing and a later element references the empty variable. Add decision checks after Get Records and fault paths on DML elements. The classic error message is 'The flow tried to access a null value' or an unhandled fault variant." } }
+          { "@type": "Question", "name": "What is the most common cause of Flow errors?", "acceptedAnswer": { "@type": "Answer", "text": "Unhandled null/no-record outcomes: a Get Records element finds nothing and a later element references the empty variable. Add decision checks after Get Records and fault paths on DML elements. The classic error message is 'The flow tried to access a null value' or an unhandled fault variant." } },
+          { "@type": "Question", "name": "Why are my Salesforce Flows not showing in the debug log?", "acceptedAnswer": { "@type": "Answer", "text": "Flow events are controlled by the Workflow log category, not a category named Flow, which is why raising other categories still shows nothing. Set Workflow to FINER to get element-level detail with variable assignments, and keep ApexCode low so the log does not truncate before reaching your flow." } },
+          { "@type": "Question", "name": "Do Salesforce Flows count toward Apex governor limits?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every Get Records element is a SOQL query and every Create, Update or Delete Records element is DML, drawn from the same per-transaction budget as Apex. The 100-query limit covers all SOQL queries fired by triggers, classes, flows and API calls in the transaction, which is why adding a flow can cause limit errors that surface inside unrelated Apex code." } },
+          { "@type": "Question", "name": "What is the $Flow.FaultMessage variable used for?", "acceptedAnswer": { "@type": "Answer", "text": "It is a global variable holding the actual system error for the element that failed — the validation rule text, the missing required field, or the duplicate rule message. Display it on a fault path in a screen flow, or write it to a field or logging object in a record-triggered flow, to convert an opaque failure into a diagnosable one." } },
+          { "@type": "Question", "name": "In what order do multiple record-triggered flows run on the same object?", "acceptedAnswer": { "@type": "Answer", "text": "The order is undefined unless you set it. Like multiple Apex triggers on one object, multiple flows for the same trigger event run in no guaranteed order. Set an explicit trigger order value on each flow, or consolidate to one before-save flow and one after-save flow per object using internal Decision branching." } },
+          { "@type": "Question", "name": "Can I test a Salesforce Flow against a real record without changing data?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. In Flow Builder's debug options, select an existing record and enable the option to show details of what's executed and roll back pending record changes. The flow runs against real data and reports every element result, then rolls the changes back. It will not reveal other automation touching the same record, which requires a debug log." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -95,7 +100,7 @@
     <p class="guide-meta">By Prit Sakhvala, Salesforce Developer · Updated July 2026</p>
 
     <div class="guide-answer">
-      <p>Debug Salesforce Flows three ways: <strong>Flow Builder's Debug mode</strong> for testing with chosen inputs, <strong>debug logs</strong> (<code>FLOW_ELEMENT</code> events) for what actually happened during a real record save alongside triggers and validation, and <strong>flow error emails</strong> for the failing element. For production behavior — especially record-triggered flows interacting with Apex — the debug log is the source of truth.</p>
+      <p>Debug Salesforce Flows three ways: <strong>Flow Builder's Debug mode</strong> for testing with chosen inputs, <strong>debug logs</strong> (<code>FLOW_ELEMENT</code> events) for what actually happened during a real record save alongside triggers and validation, and <strong>flow error emails</strong> for the failing element. For production behavior — especially record-triggered flows interacting with Apex — the debug log is the source of truth, because it is the only view that shows your flow alongside every other automation competing for the same record and the same governor limits.</p>
     </div>
 
     <h2>Debug mode vs. debug logs</h2>
@@ -111,6 +116,27 @@
     </table>
     </div>
 
+    <h3>A third option: Debug on a real record</h3>
+    <p>Flow Builder's newer debug options close much of the gap between simulation and reality. When debugging a record-triggered flow you can choose an existing record rather than entering values by hand, and enable <strong>"Run the flow as if the record was updated"</strong> to exercise the actual trigger conditions.</p>
+    <p>More useful still is the <strong>"Show details of what's executed and rollback pending record changes"</strong> option. This runs the flow against real data, shows you every element result, and then rolls everything back — so you can debug a destructive flow against production-like data without changing anything. It is the closest you get to a real transaction while remaining in the builder.</p>
+    <p>What it still cannot show you is other automation. If a trigger, workflow rule or second flow touches the same record, Debug mode will not reveal it, because it is running your flow in isolation rather than replaying a full save. For that you need the log.</p>
+
+    <h2>Why your Flow is not appearing in the log</h2>
+    <p>The single most common blocker when debugging flows, and it is a naming problem rather than a technical one. Flow events are controlled by the <strong>Workflow</strong> log category — not a category called "Flow".</p>
+    <p>If your log shows triggers and validation rules but no <code>FLOW_</code> events at all, raise Workflow to <code>FINER</code> and re-run. At <code>INFO</code> you get little more than the fact that a flow started; at <code>FINE</code> you get elements; <code>FINER</code> gives you element-level detail with variable assignments, which is what you usually want.</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Workflow level</th><th>What you get</th></tr></thead>
+      <tbody>
+        <tr><td><code>INFO</code></td><td>Minimal — enough to see that a flow ran, rarely enough to debug it</td></tr>
+        <tr><td><code>FINE</code></td><td>Element execution, so you can follow the path the flow took</td></tr>
+        <tr><td><code>FINER</code></td><td>The practical default: element detail plus variable assignment values</td></tr>
+        <tr><td><code>FINEST</code></td><td>Maximum detail, verbose enough to risk truncating the log</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Keep <code>ApexCode</code> low while doing this. If both categories are high the log fills with Apex statement detail and may truncate before reaching your flow — and a truncated log drops lines from the middle, which is exactly where your flow was. See <a href="/salesforce-debug-log-levels">debug log levels explained</a>.</p>
+
     <h2>Reading Flow events in a debug log</h2>
     <p>Set the <em>Workflow</em> category to <code>FINER</code> and each flow run produces a readable trail:</p>
     <code class="guide-code">09:12:44.2 (201400021)|FLOW_START_INTERVIEW|3001x00000AbCdE|Opportunity_After_Save
@@ -124,6 +150,23 @@
       <li><code>FLOW_ELEMENT_ERROR</code> — the failing element and message; the closest thing to a flow stack trace.</li>
     </ul>
     <p>Because these events sit in the same log as <code>CODE_UNIT_STARTED</code> trigger events, the log answers the question Debug mode can't: <em>did my flow run before or after my trigger, and who overwrote whose field?</em> That interleaving is exactly what ForceLens's Order of Execution view reconstructs visually — see the <a href="/salesforce-debug-log-analyzer">debug log analyzer guide</a>.</p>
+
+    <h3>Worked example: tracing a failing flow</h3>
+    <p>Here is what a null-value failure actually looks like in a log, and how to read backwards from the error to the cause:</p>
+    <code class="guide-code">09:12:44.2 (201400021)|FLOW_START_INTERVIEW|3001x00000AbCdE|Opportunity_After_Save
+09:12:44.2 (203100450)|FLOW_ELEMENT_BEGIN|3001x00000AbCdE|FlowRecordLookup|Get_Account
+09:12:44.2 (204800119)|FLOW_ELEMENT_END|3001x00000AbCdE|FlowRecordLookup|Get_Account
+09:12:44.2 (205100332)|FLOW_ELEMENT_BEGIN|3001x00000AbCdE|FlowAssignment|Set_Owner
+09:12:44.3 (210222040)|FLOW_ELEMENT_ERROR|The flow tried to access a null value...</code>
+    <p>Read it in this order:</p>
+    <ol>
+      <li><strong>The error names <code>Set_Owner</code></strong>, an Assignment element. But assignments do not fail on their own — they fail because of what they are reading.</li>
+      <li><strong>Look at the element immediately before it.</strong> <code>Get_Account</code> completed without error, which is exactly the trap: a Get Records that finds nothing still ends normally.</li>
+      <li><strong>Notice what is missing.</strong> There is no Decision element between the lookup and the assignment, so nothing checked whether a record was found.</li>
+      <li><strong>Conclusion:</strong> the Opportunity had no matching Account, <code>Get_Account</code> returned null, and <code>Set_Owner</code> tried to read a field from nothing. The fix belongs after <code>Get_Account</code>, not at <code>Set_Owner</code> where the error appeared.</li>
+    </ol>
+    <p>The general principle: <strong>a Flow error names where execution stopped, not where the problem started.</strong> Work backwards through the preceding elements, paying particular attention to any Get Records that succeeded without returning data.</p>
+    <p>Raising Workflow to <code>FINER</code> makes this faster still, because variable assignments appear in the log — you can see a variable holding null before the element that chokes on it, rather than inferring it.</p>
 
     <h2>Record-triggered flows in the order of execution</h2>
     <ol>
@@ -146,6 +189,41 @@
     </table>
     </div>
 
+    <h3>Fixing "The flow tried to access a null value"</h3>
+    <p>The most common Flow failure by a wide margin, and it almost always traces back to a <strong>Get Records</strong> element that found nothing.</p>
+    <p>The critical detail: when Get Records finds no match, it does not throw an error. It succeeds and returns null. The flow continues happily until a later element tries to read a field from that empty variable, and the failure surfaces there — several elements away from the actual cause. This is why the error message rarely points at the real problem.</p>
+    <p>The fix is a Decision element immediately after every Get Records, checking the record variable <strong>Is Null = True</strong> before any element touches it. Handle the empty case explicitly rather than assuming a record was found.</p>
+    <p>Two related traps worth knowing:</p>
+    <ul>
+      <li><strong>Get Records set to return "All records"</strong> gives you a collection, not a single record. Checking a collection for null is not the same as checking whether it is empty — test the count instead.</li>
+      <li><strong>A lookup field that is blank</strong> produces the same failure when a later element traverses it. Guard the traversal, not just the query.</li>
+    </ul>
+
+    <h3>Fault paths, and why the default behaviour is unhelpful</h3>
+    <p>Without a fault path, a failing element ends the interview, rolls the transaction back, and sends an error email to the flow's owner — while the user typically sees a generic, unhelpful message. Adding fault connectors to every element that can fail is the single highest-value habit in Flow development.</p>
+    <p>Elements that need one: <strong>Get Records, Create Records, Update Records, Delete Records, Apex Actions, and any external callout</strong>. On the fault path, surface the real reason rather than a generic apology:</p>
+    <code class="guide-code">{!$Flow.FaultMessage}</code>
+    <p>That global variable holds the actual system error — the validation rule text, the required field name, the duplicate rule message. Displaying it in a screen flow, or writing it to a field or custom log object in a record-triggered flow, converts an opaque failure into something diagnosable without a debug log at all.</p>
+    <p>A caution: a fault path that silently swallows errors is worse than no fault path. If the flow continues as though nothing happened, you get corrupted data instead of a visible failure. Always record the fault somewhere you will actually look.</p>
+
+    <h3>Flows share Apex governor limits</h3>
+    <p>Flows are not exempt from governor limits, and this surprises people who think of them as declarative rather than code. Every Get Records is a SOQL query. Every Create, Update or Delete Records element is DML. They draw from the same per-transaction budget as your Apex — the 100-query limit covers "all SOQL queries fired by triggers, classes, flows, and API calls" in the transaction.</p>
+    <p>Three consequences follow:</p>
+    <ul>
+      <li><strong>A Get Records inside a loop is a query in a loop</strong>, identical in cost to writing one in Apex. Move it outside and filter the collection in memory, or use a Get Records that fetches everything up front.</li>
+      <li><strong>Multiple flows on one object compound.</strong> Three record-triggered flows each issuing four queries spend twelve of your hundred before any Apex runs.</li>
+      <li><strong>A flow can break a trigger that was previously fine.</strong> Adding a flow to a heavily automated object consumes limits the Apex was relying on, and the error surfaces in the Apex — which is where people then go looking for a bug that is not there.</li>
+    </ul>
+    <p>When a flow causes limit errors, the diagnosis path is the same as for Apex: see <a href="/soql-query-optimization">SOQL optimization</a> for query counts and <a href="/salesforce-cpu-time-limit-exceeded">the CPU guide</a> for element-heavy loops.</p>
+
+    <h3>Recognising a bulkification problem in the log</h3>
+    <p>Flows bulkify automatically in many cases, and the log tells you whether yours did. <code>FLOW_BULK_ELEMENT_BEGIN</code> events mean Salesforce processed the element once across all records — the outcome you want. Repeated <code>FLOW_ELEMENT_BEGIN</code> events for the same element name mean it ran per record, which is what exhausts limits during data loads.</p>
+    <p>The usual culprit is a DML or Get Records element placed <em>inside</em> a Loop element. Move it outside: collect records into a collection variable within the loop, then perform a single Create or Update Records element on the whole collection afterwards. This is the Flow equivalent of collection DML in Apex, and it produces the same order-of-magnitude improvement.</p>
+
+    <h3>Consolidating multiple flows on one object</h3>
+    <p>Multiple record-triggered flows on the same object run in an order you do not control, exactly like multiple Apex triggers. If one flow sets a field another reads, the behaviour is undefined and can change between releases.</p>
+    <p>You can set a <strong>trigger order</strong> value on each flow to sequence them explicitly, which is the minimum fix. The better approach in most orgs is consolidation: one before-save flow and one after-save flow per object, with Decision elements branching internally. That gives deterministic ordering, a far more readable debug log, and fewer interviews competing for the same limits.</p>
+
     <h2>Analyzing Flow structure with ForceLens</h2>
     <p>Runtime debugging finds what broke; structural review finds what <em>will</em> break. From Flow Builder, one click hands the entire flow to ForceLens, which parses every element, decision, loop and fault path, scores the flow's health, and writes up findings through the lens you pick:</p>
     <ul>
@@ -163,6 +241,11 @@
       <details><summary>Do Flows appear in debug logs?</summary><p>Yes — with the Workflow category at FINE/FINER you get FLOW_START_INTERVIEW, FLOW_ELEMENT_BEGIN/END, FLOW_BULK_ELEMENT and FLOW_ELEMENT_ERROR events, interleaved with Apex triggers in true execution order.</p></details>
       <details><summary>When do record-triggered flows run in the order of execution?</summary><p>Before-save flows run early, before the record is written; after-save flows run late, after triggers and workflow, shortly before commit. After-save flows that update their own record re-run the entire order of execution.</p></details>
       <details><summary>What's the most common Flow error?</summary><p>Null access: a Get Records element finds nothing and a later element references the empty variable. Guard every Get Records with a decision check and put fault paths on DML elements.</p></details>
+      <details><summary>Why are my Flows not showing in the debug log?</summary><p>Flow events are controlled by the <strong>Workflow</strong> log category, not one named "Flow" — which is why raising every other category still shows nothing. Set Workflow to <code>FINER</code> and keep <code>ApexCode</code> low so the log does not truncate before reaching your flow.</p></details>
+      <details><summary>Do Flows count toward Apex governor limits?</summary><p>Yes. Every Get Records is a SOQL query and every Create/Update/Delete Records element is DML, drawn from the same per-transaction budget as Apex. The 100-query limit covers all queries from triggers, classes, flows and API calls combined, which is why adding a flow can cause limit errors that surface inside unrelated Apex.</p></details>
+      <details><summary>What is the $Flow.FaultMessage variable?</summary><p>A global variable holding the actual system error for the element that failed — the validation rule text, the missing required field, or the duplicate rule message. Display it on a fault path in a screen flow, or write it to a field or logging object in a record-triggered flow, to turn an opaque failure into something diagnosable.</p></details>
+      <details><summary>In what order do multiple record-triggered flows run?</summary><p>Undefined unless you set it. Like multiple Apex triggers on one object, multiple flows for the same trigger event run in no guaranteed order. Set an explicit trigger order value on each flow, or consolidate to one before-save and one after-save flow per object with internal Decision branching.</p></details>
+      <details><summary>Can I test a Flow against a real record without changing data?</summary><p>Yes. In Flow Builder's debug options, choose an existing record and enable "Show details of what's executed and rollback pending record changes". The flow runs against real data and shows every element result, then rolls the changes back. It will not show other automation touching the same record — for that you need a debug log.</p></details>
     </div>
 
     <div class="guide-cta">

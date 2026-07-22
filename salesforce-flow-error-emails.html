@@ -39,7 +39,7 @@
         "image": "https://forcelens.vercel.app/assets/forcelens_flow_analyzer.png",
         "author": { "@type": "Person", "name": "Prit Sakhvala", "jobTitle": "Salesforce Developer" },
         "publisher": { "@id": "https://forcelens.vercel.app/#organization" },
-        "dateModified": "2026-07-18"
+        "dateModified": "2026-07-21"
       },
       {
         "@type": "BreadcrumbList",
@@ -55,14 +55,19 @@
           { "@type": "Question", "name": "Who receives Salesforce flow error emails?", "acceptedAnswer": { "@type": "Answer", "text": "By default, the admin who last modified the failing flow. In Setup → Process Automation Settings, the 'Send Process or Flow Error Email to' option can be changed to notify the user who launched the flow, or the Apex exception email recipients configured in Setup → Apex Exception Email (which can include any users or external addresses)." } },
           { "@type": "Question", "name": "What does 'An unhandled fault has occurred in this flow' mean?", "acceptedAnswer": { "@type": "Answer", "text": "A flow element failed and no fault path was connected to handle the failure, so the interview crashed and (for record-triggered flows) the triggering transaction was rolled back. The error email names the failing element and error message, and lists the element-by-element path the interview took." } },
           { "@type": "Question", "name": "How do I find the root cause of a flow error?", "acceptedAnswer": { "@type": "Answer", "text": "Read the email's element path to find the failing element and its inputs, then reproduce the action with a debug log active — the FLOW_ELEMENT_ERROR event and the surrounding trigger/validation events show what actually caused the failure, including interactions the email can't show, like a validation rule blocking the flow's DML." } },
-          { "@type": "Question", "name": "How do I stop flow error emails for handled situations?", "acceptedAnswer": { "@type": "Answer", "text": "Add fault paths: connect the fault connector from DML and action elements to handling logic (log a record, notify, or end gracefully). A fault that is handled by a fault path does not send the unhandled-fault email." } }
+          { "@type": "Question", "name": "How do I stop flow error emails for handled situations?", "acceptedAnswer": { "@type": "Answer", "text": "Add fault paths: connect the fault connector from DML and action elements to handling logic (log a record, notify, or end gracefully). A fault that is handled by a fault path does not send the unhandled-fault email." } },
+          { "@type": "Question", "name": "Why am I suddenly getting hundreds of Salesforce flow error emails?", "acceptedAnswer": { "@type": "Answer", "text": "Usually a data load or bulk update hitting a flow that fails for every record, since each failed interview sends its own email. Deactivate the flow version or pause the load first, then diagnose, and add a fault path so the next bulk operation logs the failure instead of mailing it. If the failures began without a deployment, check whether another automation or a managed package changed the transaction's governor limit consumption." } },
+          { "@type": "Question", "name": "Does a Salesforce flow error roll back the whole transaction?", "acceptedAnswer": { "@type": "Answer", "text": "It depends on the flow type. A record-triggered flow that fails rolls back the triggering save. A screen flow behaves differently because each screen commits separately, so records created by earlier screens can persist even though the flow failed later, leaving partial data the error email does not mention." } },
+          { "@type": "Question", "name": "Can flow error emails be sent to more than one person?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. In Setup under Process Automation Settings, set 'Send Process or Flow Error Email to' to Apex exception email recipients, then maintain that list in Setup under Apex Exception Email. It accepts multiple addresses including external ones, so a shared team inbox can receive both Apex and Flow failure notifications." } },
+          { "@type": "Question", "name": "Why does my flow error log record disappear after the flow fails?", "acceptedAnswer": { "@type": "Answer", "text": "Because in a record-triggered flow the fault path executes inside the transaction that is rolling back, so the error record is discarded along with everything else. Write the error record from an asynchronous path or a subflow that runs in its own transaction to guarantee it persists." } },
+          { "@type": "Question", "name": "The flow error email says a validation rule failed - is that a flow bug?", "acceptedAnswer": { "@type": "Answer", "text": "Usually not. The flow performed its DML correctly and a validation rule rejected the write. The email includes the validation rule's own error text, which normally names the rule or the field involved. The decision is whether the flow should supply better data or the validation rule should exempt this case." } }
         ]
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="/css/style.css?v=116">
+  <link rel="stylesheet" href="/css/style.css?v=117">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -101,12 +106,31 @@
     <h2>Anatomy of the error email</h2>
     <p>The email contains more diagnostic material than most people read:</p>
     <ul>
-      <li><strong>Flow name, version, and interview ID</strong> — check the version: the error may be from an older active version than the one you're editing.</li>
+      <li><strong>Flow name, version, and interview ID</strong> — check the version carefully, because the error may come from an older active version rather than the draft you have open in Flow Builder, which is a common source of "I already fixed that" confusion.</li>
       <li><strong>The error message</strong> — e.g. <em>"The flow tried to access a null value"</em>, a DML failure with the underlying message (often a validation rule or required field), or "Too many SOQL queries: 101".</li>
       <li><strong>The element path</strong> — every element the interview executed, in order, with the failing element last. This is effectively a flow stack trace.</li>
       <li><strong>Variable values at failure</strong> (current values of flow variables) — often revealing the null that caused everything.</li>
       <li><strong>The triggering record ID and running user</strong> — your reproduction recipe.</li>
     </ul>
+    <p>The variable dump at the bottom is the part most people scroll past, and it frequently contains the entire answer. Scan it for variables holding <code>null</code> where you expected a record, collection variables with a count of zero, and Ids that look wrong for the object involved. A record variable showing null immediately before the failing element confirms the null-access diagnosis without needing a debug log at all.</p>
+    <p>One caution worth knowing: because these emails contain actual field values, they can carry customer data out to whoever receives them. On orgs handling regulated or personal data, route flow errors to a controlled internal address rather than personal inboxes, and treat the emails as production data rather than routine notifications.</p>
+
+    <h3>What the user saw, and what actually happened</h3>
+    <p>The email tells you a flow failed. It does not tell you what the failure did to your data, and that depends entirely on where the flow was running.</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Flow type</th><th>What the user experienced</th><th>Data impact</th></tr></thead>
+      <tbody>
+        <tr><td>Record-triggered (after-save)</td><td>Save appeared to fail, or succeeded then reverted</td><td>Triggering transaction rolls back</td></tr>
+        <tr><td>Record-triggered (before-save)</td><td>Save rejected with an error</td><td>Nothing written</td></tr>
+        <tr><td>Screen flow</td><td>Generic "unhandled fault" message on screen</td><td>Records created earlier in the flow may persist</td></tr>
+        <tr><td>Scheduled flow</td><td>Nothing — no user present</td><td>That batch fails silently; others continue</td></tr>
+        <tr><td>Autolaunched from Apex</td><td>The calling Apex throws</td><td>Whole Apex transaction rolls back</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The screen flow row is the one that causes lasting damage. Because a screen flow spans multiple transactions — each screen commits before the next loads — a failure partway through can leave records created by earlier screens in place while later work never happens. The result is orphaned or half-built data that no error message mentions. When triaging a screen flow fault, always check what the earlier elements already wrote.</p>
+    <p>The scheduled flow row is the one people discover too late. Nobody is watching, so these failures accumulate in an inbox until someone notices the data is wrong. Scheduled flows are the strongest argument for logging faults to a custom object rather than relying on email.</p>
 
     <h2>Who gets the email — and how to change it</h2>
     <p>In <strong>Setup → Process Automation Settings</strong>, "Send Process or Flow Error Email to" offers:</p>
@@ -121,6 +145,18 @@
     </table>
     </div>
 
+    <h2>Triage: what to do in the first ten minutes</h2>
+    <p>When the emails are arriving faster than you can read them, the instinct is to open one and start debugging. Stop the bleeding first — a failing record-triggered flow is rolling back real users' saves while you investigate.</p>
+    <ol>
+      <li><strong>Establish the blast radius.</strong> Are these emails for one record or hundreds? One is a data problem; hundreds means every save on that object is failing and users are actively blocked.</li>
+      <li><strong>Check whether the flow version is new.</strong> The email names the flow version. If it matches something deployed today, you have your cause — and rolling back to the previous active version is faster than fixing forward.</li>
+      <li><strong>Decide whether to deactivate.</strong> For a widespread failure, deactivating the flow version restores service immediately. This is usually right for a flow doing non-critical work, and wrong for one enforcing data integrity, since deactivating it lets bad data through silently.</li>
+      <li><strong>Capture one good reproduction.</strong> Before changing anything, take one email's record Id and running user and reproduce with a debug log active. Once you deactivate or edit the flow, that evidence is gone.</li>
+      <li><strong>Only then diagnose.</strong> With the log captured and the bleeding stopped, work through the root-cause steps below without time pressure.</li>
+    </ol>
+    <p>Step 4 is the one most often skipped and most regretted. A reproduction against the exact failing record, with the log captured, answers questions no amount of reading the flow in Flow Builder will — particularly when the cause is another automation rather than the flow itself.</p>
+    <p>If the failures began without any deployment, suspect the transaction rather than the flow. A new managed package, a new trigger, or simple data growth can push a transaction over a <a href="/salesforce-governor-limits-explained">governor limit</a> that the flow was previously fitting inside comfortably.</p>
+
     <h2>From email to root cause</h2>
     <ol>
       <li><strong>Read the element path bottom-up.</strong> The last element failed; the elements before it produced its inputs.</li>
@@ -129,14 +165,55 @@
       <li><strong>Check limits.</strong> If the message is a limit error, the log's <code>LIMIT_USAGE_FOR_NS</code> section shows what consumed the budget — often not the flow itself (<a href="/salesforce-governor-limits-explained">governor limits explained</a>).</li>
     </ol>
 
+    <h2>Decoding the error message</h2>
+    <p>The message in the email is the fastest route to a diagnosis, provided you know what each one usually means. These five cover the overwhelming majority:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Message in the email</th><th>What actually happened</th><th>Where to fix it</th></tr></thead>
+      <tbody>
+        <tr><td>"The flow tried to access a null value"</td><td>A Get Records found nothing; a later element read from the empty variable</td><td>Decision check after the Get Records, not at the failing element</td></tr>
+        <tr><td>"FIELD_CUSTOM_VALIDATION_EXCEPTION"</td><td>A validation rule rejected the flow's DML</td><td>The validation rule, or the data the flow supplies</td></tr>
+        <tr><td>"REQUIRED_FIELD_MISSING"</td><td>A Create Records element omitted a required field</td><td>Add the field, or supply a default</td></tr>
+        <tr><td>"Too many SOQL queries: 101"</td><td>Get Records in a loop, or the transaction was already near its cap</td><td>Move the query out of the loop; check other automation</td></tr>
+        <tr><td>"UNABLE_TO_LOCK_ROW"</td><td>Two transactions tried to update the same record simultaneously</td><td>Usually a concurrency issue, not a flow bug — see below</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Two of these deserve elaboration because they are routinely misdiagnosed.</p>
+    <p><strong>Validation exceptions are not flow bugs.</strong> The flow did exactly what it was told; a rule elsewhere rejected the write. The email surfaces the validation rule's own error text, which is why reading the full message matters — it usually names the rule or the field. The decision to make is whether the flow should supply better data or the rule should exempt this case.</p>
+    <p><strong><code>UNABLE_TO_LOCK_ROW</code> is a timing problem.</strong> It means another transaction held a lock on the record your flow tried to update. This appears in orgs with heavy automation on parent objects — several child updates each triggering a parent roll-up at once. The flow is a victim rather than a cause, and the fix is usually to reduce contention by moving work asynchronous, not to change the flow.</p>
+
     <h2>Preventing the crash: fault paths</h2>
-    <p>Every element that can fail — Get/Create/Update/Delete Records, actions, callouts, subflows — has a <strong>fault connector</strong>. Connect it to handling logic and the fault becomes handled: no crash, no unhandled-fault email, and (if you choose) a graceful message or a logged error record. A pragmatic pattern:</p>
+    <p>Every element that can fail — Get/Create/Update/Delete Records, actions, callouts, subflows — has a <strong>fault connector</strong>, and leaving it unconnected is what turns a recoverable condition into a crash. Connect it to handling logic and the fault becomes handled: no crash, no unhandled-fault email, and (if you choose) a graceful message or a logged error record. A pragmatic pattern:</p>
     <ul>
       <li>Fault path → Create Records on a custom <code>Flow_Error__c</code> object (flow name, <code>{!$Flow.FaultMessage}</code>, record ID, user).</li>
-      <li>Then → a screen with a friendly message (screen flows) or a silent end (record-triggered flows).</li>
+      <li>Then → a screen with a friendly message that displays <code>{!$Flow.FaultMessage}</code> (screen flows), so the user can report something specific rather than "it broke", or a silent end (record-triggered flows).</li>
       <li>A report or alert on <code>Flow_Error__c</code> gives the team one dashboard of flow health instead of an inbox of stack traces.</li>
     </ul>
     <p>Also add decision checks after every Get Records ("was anything found?") — the cheapest insurance against the null-value fault, which is the most common flow error of all.</p>
+
+    <h3>Building the error log object</h3>
+    <p>Email is a poor monitoring system: it goes to one person, gets filtered, and disappears when they leave. A custom logging object turns the same information into something reportable. A workable minimum:</p>
+    <div class="guide-table-wrap">
+    <table class="guide-table">
+      <thead><tr><th>Field</th><th>Populate with</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>Flow Name (Text)</td><td>Hard-coded per flow</td><td>Group failures by source</td></tr>
+        <tr><td>Error Message (Long Text)</td><td><code>{!$Flow.FaultMessage}</code></td><td>The actual system error</td></tr>
+        <tr><td>Element Name (Text)</td><td>Hard-coded on each fault path</td><td>Locates the failure without a log</td></tr>
+        <tr><td>Record Id (Text)</td><td>The triggering record</td><td>Your reproduction recipe</td></tr>
+        <tr><td>Running User (Lookup)</td><td><code>{!$User.Id}</code></td><td>Permission-related failures</td></tr>
+        <tr><td>Occurred At (DateTime)</td><td><code>{!$Flow.CurrentDateTime}</code></td><td>Correlate with deployments and load</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Setting the Element Name manually on each fault path feels tedious and repays the effort immediately — it is the difference between "this flow failed" and "the Update Contacts element failed", which often removes the need to capture a log at all.</p>
+    <p>One important caveat: <strong>in a record-triggered flow, the error record is written inside the same transaction that is about to roll back.</strong> If the transaction fails after your fault path runs, the log record disappears with everything else. To guarantee the record survives, write it from an asynchronous path or a subflow running in its own transaction. For screen flows this is not a concern, since each screen commits independently.</p>
+    <p>With that object in place, a simple report grouped by flow name and a dashboard component showing failures over the last seven days gives the whole team visibility that no inbox can. Add a scheduled report subscription and you have genuine monitoring rather than ad-hoc notification.</p>
+
+    <h3>When you should not add a fault path</h3>
+    <p>Fault paths are not universally correct. If a record-triggered flow performs work that <em>must</em> succeed for the data to be valid, catching the fault and continuing silently produces corrupted records — a considerably worse outcome than a visible failure and a rollback.</p>
+    <p>The test is simple: <strong>would you rather the save failed, or that it succeeded with incomplete data?</strong> If the answer is that it should fail, let the fault propagate and rely on the email. Use the fault path only to log the failure, then leave the flow to end in error rather than routing it to a "success" outcome.</p>
 
     <h2>Reviewing flows before they fail</h2>
     <p>Missing fault paths and unguarded Get Records are exactly the structural issues ForceLens's Flow analyzer flags: hand it any flow from Flow Builder and the Developer and QA lenses list unhandled fault connectors, null-risk references and bulkification concerns — with a health score and a ready .docx report. Cheaper than learning from production emails.</p>
@@ -147,6 +224,11 @@
       <details><summary>What does "An unhandled fault has occurred in this flow" mean?</summary><p>An element failed with no fault path attached, crashing the interview and (for record-triggered flows) rolling back the triggering transaction. The email names the element and error and lists the executed path.</p></details>
       <details><summary>How do I find the root cause?</summary><p>Read the element path and variable values in the email, then reproduce with a debug log — FLOW_ELEMENT_ERROR plus surrounding trigger/validation events show what the email can't.</p></details>
       <details><summary>How do I stop unhandled-fault emails?</summary><p>Add fault paths to every fallible element. Handled faults don't send the email — and can log to a custom object instead for proper monitoring.</p></details>
+      <details><summary>Why am I suddenly getting hundreds of flow error emails?</summary><p>Usually a data load or bulk update hitting a flow that fails per record. Each failed interview sends its own email. Deactivate the flow version or pause the load first, then diagnose — and add a fault path so the next bulk operation logs rather than mails. If the failures started without a deployment, check whether another automation or package changed the transaction's limit consumption.</p></details>
+      <details><summary>Does a flow error roll back the whole transaction?</summary><p>It depends on the flow type. A record-triggered flow failing rolls back the triggering save. A screen flow is different: each screen commits separately, so records created by earlier screens can persist even though the flow failed later — leaving partial data that the error email does not mention.</p></details>
+      <details><summary>Can I send flow error emails to more than one person?</summary><p>Yes. In Setup → Process Automation Settings, set "Send Process or Flow Error Email to" to <em>Apex exception email recipients</em>, then maintain that list in Setup → Apex Exception Email. It accepts multiple addresses including external ones, so a shared team inbox receives both Apex and Flow failures.</p></details>
+      <details><summary>Why does my error log record disappear after the flow fails?</summary><p>Because in a record-triggered flow the fault path runs inside the transaction that is rolling back, so the log record is discarded with everything else. Write the error record from an asynchronous path or a subflow that runs in its own transaction to guarantee it survives.</p></details>
+      <details><summary>The email says a validation rule failed — is that a flow bug?</summary><p>Usually not. The flow performed its DML correctly and a validation rule rejected the write. The email includes the rule's own error text, which normally names the rule or field. Decide whether the flow should supply better data or the rule should exempt this case.</p></details>
     </div>
 
     <div class="guide-cta">
